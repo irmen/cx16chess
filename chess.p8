@@ -13,17 +13,10 @@ main {
 
         board.place_start_pieces()
 
+        show_sprite()
+
 ;        repeat {
-;            ubyte mb
-;            %asm {{
-;                phx
-;                ldx  #cx16.r0
-;                jsr  cx16.mouse_get
-;                sta  mb
-;                plx
-;            }}
-;            txt.print_uwhex(&cx16.r0, true)
-;            txt.spc()
+;            ubyte mb = mouse.mouse_pos()
 ;            txt.print_uw(cx16.r0)
 ;            txt.spc()
 ;            txt.print_uw(cx16.r1)
@@ -31,6 +24,43 @@ main {
 ;            txt.print_ub(mb)
 ;            txt.nl()
 ;        }
+    }
+
+    sub show_sprite() {
+        ; experiment: show a single 32x32 16 color sprite
+        ; https://www.8bitcoding.com/p/sprites-in-basic.html
+
+        ; sprite registers base in VRAM:  $1fc00
+        ;        Sprite 0:          $1FC00 - $1FC07     ; used by the kernal for mouse pointer
+        ;        Sprite 1:          $1FC08 - $1FC0F
+        ;        Sprite 2:          $1FC10 - $1FC17
+        ;        …
+        ;        Sprite 127:        $1FFF8 - $1FFFF
+
+        cx16.VERA_DC_VIDEO |= %01000000     ; enable sprites globally
+        cx16.vpoke(1, $fc08, $00)           ; sprite data ptr bits 5-12
+        cx16.vpoke(1, $fc08+1, %00000010)   ; mode bit (16 colors) and sprite dataptr bits 13-16
+        cx16.vpoke(1, $fc08+2, 20)          ; x lo
+        cx16.vpoke(1, $fc08+3, 0)           ; x hi
+        cx16.vpoke(1, $fc08+4, 100)         ; y lo
+        cx16.vpoke(1, $fc08+5, 0)           ; y hi
+        cx16.vpoke(1, $fc08+7, %10100000)       ; 32x32 pixels, palette offset 0
+        cx16.vpoke(1, $fc08+6, cx16.vpeek(1, $fc08+6) | %00001100)    ; enable sprite, z depth %11 = before both layers
+
+    }
+}
+
+mouse {
+    asmsub mouse_pos() -> ubyte @A {
+        ; -- short wrapper around mouse_get() kernal routine:
+        ; -- gets the position of the mouse cursor in cx16.r0 and cx16.r1 (x/y coordinate), returns mouse button status.
+        %asm {{
+            phx
+            ldx  #cx16.r0
+            jsr  cx16.mouse_get
+            plx
+            rts
+        }}
     }
 }
 
