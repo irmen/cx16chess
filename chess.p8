@@ -5,30 +5,32 @@
 main {
     sub start() {
         txt.lowercase()
+        txt.color2(1, 6)
         txt.clear_screen()
         cx16.mouse_config(1, 0)
         txt.print("Chess.")
         board.print_board()
 
         board.place_start_pieces()
-        repeat {
-            ubyte mb
-            %asm {{
-                phx
-                ldx  #cx16.r0
-                jsr  cx16.mouse_get
-                sta  mb
-                plx
-            }}
-            txt.print_uwhex(&cx16.r0, true)
-            txt.spc()
-            txt.print_uw(cx16.r0)
-            txt.spc()
-            txt.print_uw(cx16.r1)
-            txt.spc()
-            txt.print_ub(mb)
-            txt.nl()
-        }
+
+;        repeat {
+;            ubyte mb
+;            %asm {{
+;                phx
+;                ldx  #cx16.r0
+;                jsr  cx16.mouse_get
+;                sta  mb
+;                plx
+;            }}
+;            txt.print_uwhex(&cx16.r0, true)
+;            txt.spc()
+;            txt.print_uw(cx16.r0)
+;            txt.spc()
+;            txt.print_uw(cx16.r1)
+;            txt.spc()
+;            txt.print_ub(mb)
+;            txt.nl()
+;        }
     }
 }
 
