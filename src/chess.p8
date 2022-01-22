@@ -19,8 +19,27 @@ main {
         board.print_board_bg()
         board.init()
         board.place_pieces()
-
         sprites.enable()
+
+        sys.wait(60)
+        word[33] sprites_x
+        word[33] sprites_y
+; TODO fix codegen for:
+;        sprites_x = sprites.sprites_x
+;        sprites_y = sprites.sprites_y
+        sys.memcopy(sprites.sprites_x, sprites_x, 33*2)
+        sys.memcopy(sprites.sprites_y, sprites_y, 33*2)
+        ubyte arc = 0
+        repeat {
+            sys.waitvsync()
+            ubyte spr
+            for spr in 1 to 32 {
+                word sx = sprites_x[spr]+(sin8(arc) as word)*2
+                word sy = sprites_y[spr]+cos8(arc)
+                sprites.move(spr, sx, sy)
+            }
+            arc++
+        }
     }
 }
 
@@ -42,7 +61,7 @@ board {
     ; column 0-7 in the array = column a-h on screen
 
     sub init() {
-        sys.memset(&chessboard, len(chessboard), 0)
+        sys.memset(&chessboard+2*8, len(chessboard)-2*8, 0)
         sys.memset(&chessboard+1*8, 8, 'p')
         sys.memset(&chessboard+6*8, 8, 'P')
         sys.memcopy("rnbqkbnr", &chessboard+0*8, 8)
@@ -142,6 +161,9 @@ sprites {
         cx16.VERA_DC_VIDEO |= %01000000                         ; enable sprites globally
     }
 
+    word[33] sprites_x
+    word[33] sprites_y
+
     sub init(ubyte sprite_num, ubyte bitmap_idx, word x, word y) {
         ; initialize a single 32x32 16 color sprite
         ; https://www.8bitcoding.com/p/sprites-in-basic.html
@@ -162,6 +184,8 @@ sprites {
     }
 
     sub move(ubyte sprite_num, word x, word y) {
+        sprites_x[sprite_num] = x
+        sprites_y[sprite_num] = y
         uword sprite_pos_regs = VERA_SPRITEREGS+sprite_num*$0008 + 2
         cx16.vpoke(1, sprite_pos_regs, lsb(x))
         cx16.vpoke(1, sprite_pos_regs+1, msb(x))
