@@ -1,4 +1,5 @@
 from PIL import Image
+from PIL import ImageDraw
 
 
 def convert_palette(palette):
@@ -13,6 +14,8 @@ def convert_palette(palette):
 
 def extract(outf, x, y, piece_name):
     piece = img.crop((x, y, x + 32, y + 32))
+    # draw = ImageDraw.Draw(piece)
+    # draw.line((0,0,31,0,31,31,0,31,0,0), 15)
     for y in range(32):
         for xpair in range(16):
             pix1 = piece.getpixel((xpair * 2, y))
@@ -30,6 +33,7 @@ if __name__ == "__main__":
     pieces = "RBQKNP"
 
     with open("CHESSPIECES.BIN", "wb") as outf:
+        outf.write(bytes([0,0]))    # CBM prg header
         # black pieces
         for pn, letter in enumerate(pieces):
             x = pn * 33 + 2
@@ -43,6 +47,7 @@ if __name__ == "__main__":
             extract(outf, x, y, f'_white_{letter}')
 
     with open("CHESSPIECES.PAL", "wb") as outf:
+        outf.write(bytes([0,0]))    # CBM prg header
         for r, g, b in convert_palette(img.getpalette()):
             # note: have to convert to different order when writing as binary file!
             # rgb = (r << 8) | (g << 4) | b
