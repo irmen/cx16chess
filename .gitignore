@@ -1,5 +1,10 @@
 .gradle
 .idea
+*.PAL
+*.BIN
+*.bin
+*.iml
+*.ini
 *.prg
 *.asm
 *.vice-mon-list
