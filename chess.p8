@@ -1,4 +1,5 @@
 %import textio
+%import palette
 %zeropage basicsafe
 %option no_sysinit
 
@@ -7,13 +8,19 @@ main {
         txt.lowercase()
         txt.color2(1, 6)
         txt.clear_screen()
+        sprites.set_palette()
+        sprites.sprite2vram()
         cx16.mouse_config(1, 0)
-        txt.print("Chess.")
+        txt.print("\n\n  Chess.")
         board.print_board()
 
         board.place_start_pieces()
 
         show_sprite()
+        repeat {
+            sys.waitvsync()
+            move_sprite()
+        }
 
 ;        repeat {
 ;            ubyte mb = mouse.mouse_pos()
@@ -40,13 +47,28 @@ main {
         cx16.VERA_DC_VIDEO |= %01000000     ; enable sprites globally
         cx16.vpoke(1, $fc08, $00)           ; sprite data ptr bits 5-12
         cx16.vpoke(1, $fc08+1, %00000010)   ; mode bit (16 colors) and sprite dataptr bits 13-16
-        cx16.vpoke(1, $fc08+2, 20)          ; x lo
-        cx16.vpoke(1, $fc08+3, 0)           ; x hi
-        cx16.vpoke(1, $fc08+4, 100)         ; y lo
-        cx16.vpoke(1, $fc08+5, 0)           ; y hi
-        cx16.vpoke(1, $fc08+7, %10100000)       ; 32x32 pixels, palette offset 0
+        move_sprite()
+        cx16.vpoke(1, $fc08+7, %10100010)       ; 32x32 pixels, palette offset 2 (=32)
         cx16.vpoke(1, $fc08+6, cx16.vpeek(1, $fc08+6) | %00001100)    ; enable sprite, z depth %11 = before both layers
+    }
 
+    word sprite_x = -32
+    word sprite_y = 100
+    sub move_sprite() {
+        cx16.vpoke(1, $fc08+2, lsb(sprite_x))
+        cx16.vpoke(1, $fc08+3, msb(sprite_x))
+        cx16.vpoke(1, $fc08+4, lsb(sprite_y))
+        cx16.vpoke(1, $fc08+5, msb(sprite_y))
+
+        sprite_x += 4
+        sprite_y ++
+        if sprite_x > 640 {
+            sprite_x = -32
+        }
+
+        if sprite_y > 480 {
+            sprite_y = -32
+        }
     }
 }
 
@@ -184,3 +206,33 @@ board {
         }
     }
 }
+
+sprites {
+
+spritedata:
+    %asminclude "spritedata.asm"
+
+    sub set_palette() {
+        uword addr = &spritedata + 6*2*16*32
+        ubyte ix
+        for ix in 0 to 15 {
+            palette.set_color(ix+32, peekw(addr))
+            addr += 2
+        }
+    }
+
+    sub sprite2vram() {
+        uword addr = &spritedata
+        uword vaddr = $4000
+        ubyte si
+        for si in 0 to 11 {
+            uword bi
+            for bi in 0 to 16*32 {
+                cx16.vpoke(0, vaddr, @(addr))
+                addr++
+                vaddr++
+            }
+        }
+    }
+}
+
