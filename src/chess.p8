@@ -15,10 +15,10 @@ main {
         txt.clear_screen()
         txt.lowercase()
         cx16.mouse_config(1, 0)
-        txt.print("\n\n  Chess.")
-        board.print_board()
-
-        board.place_start_pieces()
+        txt.print("\n\n  Chess.\n")
+        board.print_board_bg()
+        board.init()
+        board.place_pieces()
 
         sprites.enable()
     }
@@ -31,7 +31,25 @@ board {
     const ubyte white_square_color = 15
     const ubyte black_square_color = 12
 
-    sub print_board() {
+    %option align_page
+
+    ubyte[64] chessboard
+    ; lowercase 'rnbqkbnr' and 'p' -> white player's pieces
+    ; uppercase 'RNBQKBNR' and 'P' -> black player's pieces
+    ; something else -> no piece on this square
+    ; row 0 of the chessboard array = bottom row (1) on screen
+    ; row 7 of the chessboard array = top row (8) on screen
+    ; column 0-7 in the array = column a-h on screen
+
+    sub init() {
+        sys.memset(&chessboard, len(chessboard), 0)
+        sys.memset(&chessboard+1*8, 8, 'p')
+        sys.memset(&chessboard+6*8, 8, 'P')
+        sys.memcopy("rnbqkbnr", &chessboard+0*8, 8)
+        sys.memcopy("RNBQKBNR", &chessboard+7*8, 8)
+    }
+
+    sub print_board_bg() {
         ubyte col = board_col
         ubyte row = board_row
         ubyte line
@@ -90,42 +108,29 @@ board {
         }
     }
 
-    sub place_start_pieces() {
-        ubyte col = 'a'
+    sub place_pieces() {
         ubyte sprite_num = 1
+        ubyte pi
         ubyte piece
-        for piece in "RNBQKBNR" {
-            ubyte sprite_idx = sprites.for_piece(0, piece)
-            word sx = sprites.x_for_col(col)
-            word sy = sprites.y_for_row(8)
-            sprites.init(sprite_num, sprite_idx, sx, sy)
-            sprite_num++
-            sy = sprites.y_for_row(1)
-            sprites.init(sprite_num, sprite_idx+6, sx, sy)
-            sprite_num++
-            col++
-        }
-        ; place the pawns
-        sprite_idx = sprites.for_piece(0, 'P')
-        repeat 8 {
-            col--
-            sx = sprites.x_for_col(col)
-            sy = sprites.y_for_row(7)
-            sprites.init(sprite_num, sprite_idx, sx, sy)
-            sprite_num++
-            sy = sprites.y_for_row(2)
-            sprites.init(sprite_num, sprite_idx+6, sx, sy)
-            sprite_num++
+        for piece in chessboard {
+            piece = sprites.image_for_piece(piece)
+            if piece!=255 {
+                 word sx = sprites.col_x((pi & 7) + 'a')
+                 word sy = sprites.col_y((pi >> 3) + 1)
+                 sprites.init(sprite_num, piece, sx, sy)
+                 sprite_num++
+            }
+            pi++
         }
     }
 
-    sub square_screen_col(ubyte col) -> ubyte {
-        return (col-'a')*square_size + board_col
-    }
+;    sub square_screen_col(ubyte col) -> ubyte {
+;        return (col-'a')*square_size + board_col
+;    }
 
-    sub square_screen_row(ubyte row) -> ubyte {
-        return (8-row as byte) as ubyte*square_size + board_row
-    }
+;    sub square_screen_row(ubyte row) -> ubyte {
+;        return (8-row as byte) as ubyte*square_size + board_row
+;    }
 }
 
 sprites {
@@ -171,27 +176,32 @@ sprites {
     ;   3 = K (black king)
     ;   4 = N (black knight)
     ;   5 = P (black pawn)
-    ;   6-11 are the same pieces, but for the white player.
-    ; K (king), Q (queen), R (rook), B (bishop), and N (knight). P (pawn), but often empty/space.
+    ;   6-11 are the same pieces, but for the white player ('rbqknp' lowercase)
+    ; K (king), Q (queen), R (rook), B (bishop), and N (knight). P (pawn)
 
-    sub for_piece(ubyte player, ubyte piece) -> ubyte {
-        player *= 6
+    sub image_for_piece(ubyte piece) -> ubyte {
         when piece {
-            'R' -> return player
-            'B' -> return player+1
-            'Q' -> return player+2
-            'K' -> return player+3
-            'N' -> return player+4
-            'P' -> return player+5
+            'R' -> return 0
+            'B' -> return 1
+            'Q' -> return 2
+            'K' -> return 3
+            'N' -> return 4
+            'P' -> return 5
+            'r' -> return 6
+            'b' -> return 7
+            'q' -> return 8
+            'k' -> return 9
+            'n' -> return 10
+            'p' -> return 11
             else -> return 255
         }
     }
 
-    sub x_for_col(ubyte column) -> word {
+    sub col_x(ubyte column) -> word {
         return (column-'a' as uword) * board.square_size * 8 + board.board_col * 8 + 4
     }
 
-    sub y_for_row(ubyte row) -> word {
+    sub col_y(ubyte row) -> word {
         return (8-row as word) * board.square_size * 8 + board.board_row *8 +4
     }
 }
