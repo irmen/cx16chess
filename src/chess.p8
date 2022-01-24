@@ -22,13 +22,8 @@ main {
         sprites.enable()
 
         sys.wait(60)
-        word[33] sprites_x
-        word[33] sprites_y
-; TODO fix codegen for:
-;        sprites_x = sprites.sprites_x
-;        sprites_y = sprites.sprites_y
-        sys.memcopy(sprites.sprites_x, sprites_x, 33*2)
-        sys.memcopy(sprites.sprites_y, sprites_y, 33*2)
+        word[33] sprites_x = sprites.sprites_x
+        word[33] sprites_y = sprites.sprites_y
         ubyte arc = 0
         repeat {
             sys.waitvsync()
