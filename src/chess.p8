@@ -1,24 +1,26 @@
 %import textio
 %import palette
+%import cx16diskio
 %zeropage basicsafe
 %option no_sysinit
 
 main {
     sub start() {
         txt.print("loading...")
-        if not cx16.vload("chesspieces.bin", 8, 0, $4000)
-           or not cx16.vload("chesspieces.pal", 8, 1, $fa00 + sprites.palette_offset*2) {
+        if not cx16diskio.vload("chesspieces.bin", 8, 0, $4000)
+           or not cx16diskio.vload("chesspieces.pal", 8, 1, $fa00 + sprites.palette_offset*2) {
             txt.print("load error\n")
             sys.exit(1)
         }
         txt.color2(1, 6)
         txt.clear_screen()
         txt.lowercase()
-        cx16.mouse_config(1, 0)
         txt.print("\n\n  Chess.\n")
         board.print_board_bg()
         board.init()
         board.place_pieces()
+
+        cx16.mouse_config(1, 0)
         sprites.enable()
 
         sys.wait(60)
