@@ -20,7 +20,7 @@ main {
         board.init()
         board.place_pieces()
 
-        cx16.mouse_config(1, 0)
+        cx16.mouse_config2(1)
         sprites.enable()
 
         sys.wait(60)
