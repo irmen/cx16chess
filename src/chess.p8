@@ -1,6 +1,7 @@
 %import textio
 %import palette
 %import cx16diskio
+%import math
 %zeropage basicsafe
 %option no_sysinit
 
@@ -31,8 +32,8 @@ main {
             sys.waitvsync()
             ubyte spr
             for spr in 1 to 32 {
-                word sx = sprites_x[spr]+(sin8(arc) as word)*2
-                word sy = sprites_y[spr]+cos8(arc)
+                word sx = sprites_x[spr]+(math.sin8(arc) as word)*2
+                word sy = sprites_y[spr]+math.cos8(arc)
                 sprites.move(spr, sx, sy)
             }
             arc++
