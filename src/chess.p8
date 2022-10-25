@@ -8,8 +8,8 @@
 main {
     sub start() {
         txt.print("loading...")
-        if not cx16diskio.vload("chesspieces.bin", 8, 0, $4000)
-           or not cx16diskio.vload("chesspieces.pal", 8, 1, $fa00 + sprites.palette_offset*2) {
+        if not cx16diskio.vload_raw("chesspieces.bin", 8, 0, $4000)
+           or not cx16diskio.vload_raw("chesspieces.pal", 8, 1, $fa00 + sprites.palette_offset*2) {
             txt.print("load error\n")
             sys.exit(1)
         }
