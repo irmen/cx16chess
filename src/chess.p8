@@ -5,6 +5,20 @@
 %zeropage basicsafe
 %option no_sysinit
 
+; TODO make the board a more pleasant color, brown + lightbrown?
+; TODO another board notation in octal, see https://github.com/maksimKorzh/6502-chess/blob/main/src/chess_tty_cc65.c ?
+;      another source: https://home.hccnet.nl/h.g.muller/board.html
+;      makes the move generation look easy with the move_offsets lists.
+
+
+; We use 16 + 16 + 2 = 34 sprites (+ the system mouse pointer as sprite 0).
+; Sprite 0   = system mouse pointer.
+;    First 8 sprites (1-8) = black pieces  RNBQKBNR
+;  Second 8 sprites (9-16) = black pawns   PPPPPPPP
+;  Third 8 sprites (17-24) = white pawns   pppppppp
+; Fourth 8 sprites (25-32) = white pieces  rnbqkbnr
+;  Last 2 sprites (33, 34) = crosshair 1, crosshair 2
+
 main {
     sub start() {
         load_sprites()
@@ -14,26 +28,51 @@ main {
         txt.print("\n\n  Chess.\n")
         board.print_board_bg()
         board.init()
-        board.place_pieces()
-        fix_crosshairs()
+        board.place_pieces_initial()
 
         cx16.mouse_config2(1)
         sprites.enable()
 
-        sys.wait(60)
-        word[35] sprites_x = sprites.sprites_x
-        word[35] sprites_y = sprites.sprites_y
-        ubyte arc = 0
+        demo_follow_mouse()
+    }
+
+    sub demo_follow_mouse() {
         repeat {
             sys.waitvsync()
-            ubyte spr
-            for spr in 1 to 34 {
-                word sx = sprites_x[spr]+(math.sin8(arc) as word)*2
-                word sy = sprites_y[spr]+math.cos8(arc)
-                sprites.move(spr, sx, sy)
+            sys.waitvsync()
+            demo_flash_crosshairs()
+            ubyte buttons = cx16.mouse_pos()
+            if buttons {
+                ubyte col = board.col_for_sx(cx16.r0s)
+                ubyte row = board.row_for_sy(cx16.r1s)
+                sprites.move(sprites.sprite_num_crosshair1, sprites.sx_for_col(col), sprites.sy_for_row(row))
+                txt.plot(10, 10)
+                txt.chrout(col)
+                txt.chrout('-')
+                txt.chrout(row + '0')
             }
-            arc++
         }
+    }
+
+    sub demo_flash_crosshairs() {
+        ; rotate the 16 colors in the crosshair palette
+        uword palette_src = $fa00 + sprites.palette_offset_color_crosshair*2
+        uword palette_dest = palette_src
+        palette_src += 2
+        ubyte first_lo = cx16.vpeek(1, palette_dest)
+        ubyte first_hi = cx16.vpeek(1, palette_dest+1)
+        repeat 15 {
+            cx16.r2L = cx16.vpeek(1, palette_src)
+            cx16.vpoke(1, palette_dest, cx16.r2L)
+            palette_src++
+            palette_dest++
+            cx16.r2L = cx16.vpeek(1, palette_src)
+            cx16.vpoke(1, palette_dest, cx16.r2L)
+            palette_src++
+            palette_dest++
+        }
+        cx16.vpoke(1, palette_dest, first_lo)
+        cx16.vpoke(1, palette_dest+1, first_hi)
     }
 
     sub load_sprites() {
@@ -45,30 +84,26 @@ main {
         }
 
         if not cx16diskio.vload_raw("crosshairs.bin", 8, 0, $4000 + 12*32*32/2)
-           or not cx16diskio.vload_raw("crosshairs.pal", 8, 1, $fa00 + sprites.palette_offset_color*2+16*2) {
+           or not cx16diskio.vload_raw("crosshairs.pal", 8, 1, $fa00 + sprites.palette_offset_color_crosshair*2) {
             txt.print("load error\n")
             sys.exit(1)
         }
-    }
-
-    sub fix_crosshairs() {
-        ; crosshairs have their own palette after the 16 colors of the pieces.
-        sprites.set_palette_offset(33, sprites.palette_offset_color+16)
-        sprites.set_palette_offset(34, sprites.palette_offset_color+16)
     }
 }
 
 
 board {
+    %option align_page
+    ubyte[64] chessboard
+    str black_pieces_row = "RNBQKBNR"
+    str white_pieces_row = "rnbqkbnr"
+
     const ubyte board_col = 20
     const ubyte board_row = 5
     const ubyte square_size = 5
     const ubyte white_square_color = 15
     const ubyte black_square_color = 12
 
-    %option align_page
-
-    ubyte[64] chessboard
     ; lowercase 'rnbqkbnr' and 'p' -> white player's pieces
     ; uppercase 'RNBQKBNR' and 'P' -> black player's pieces
     ; something else -> no piece on this square
@@ -80,8 +115,40 @@ board {
         sys.memset(&chessboard+2*8, len(chessboard)-2*8, 0)
         sys.memset(&chessboard+1*8, 8, 'p')
         sys.memset(&chessboard+6*8, 8, 'P')
-        sys.memcopy("rnbqkbnr", &chessboard+0*8, 8)
-        sys.memcopy("RNBQKBNR", &chessboard+7*8, 8)
+        sys.memcopy(white_pieces_row, &chessboard+0*8, 8)
+        sys.memcopy(black_pieces_row, &chessboard+7*8, 8)
+    }
+
+    sub place_pieces_initial() {
+        ubyte sprite_num = 1
+        place(black_pieces_row, 8)  ; black pieces
+        place("PPPPPPPP", 7)        ; black pawns
+        place("pppppppp", 2)        ; white pawns
+        place(white_pieces_row, 1)  ; white pieces
+        ; now the 2 crosshairs in sprite 33 and 34
+        ; the crosshairs will fall behind the pieces.
+        ; note that they have their own palette after the 16 colors of the pieces.
+        ubyte piece = sprites.image_for_piece('<')
+        sprites.init(sprite_num, piece, sprites.sx_for_col('c'), sprites.sy_for_row(4))
+        sprites.set_palette_offset(sprite_num, sprites.palette_offset_color_crosshair)
+        sprite_num++
+        piece = sprites.image_for_piece('>')
+        sprites.init(sprite_num, piece, sprites.sx_for_col('e'), sprites.sy_for_row(4))
+        sprites.set_palette_offset(sprite_num, sprites.palette_offset_color_crosshair)
+        sprite_num++
+
+        sub place(str pieces, ubyte row) {
+            ubyte col
+            for col in 0 to 7 {
+                piece = sprites.image_for_piece(pieces[col])
+                if piece!=255 {
+                     word sx = sprites.sx_for_col(col + 'a')
+                     word sy = sprites.sy_for_row(row)
+                     sprites.init(sprite_num, piece, sx, sy)
+                     sprite_num++
+                }
+            }
+        }
     }
 
     sub print_board_bg() {
@@ -143,27 +210,16 @@ board {
         }
     }
 
-    sub place_pieces() {
-        ubyte sprite_num = 1
-        ubyte pi
-        ubyte piece
-        for piece in chessboard {
-            piece = sprites.image_for_piece(piece)
-            if piece!=255 {
-                 word sx = sprites.sx_for_col((pi & 7) + 'a')
-                 word sy = sprites.sy_for_row((pi >> 3) + 1)
-                 sprites.init(sprite_num, piece, sx, sy)
-                 sprite_num++
-            }
-            pi++
-        }
+    sub col_for_sx(word sx) -> ubyte {
+        sx -= board.board_col * 8
+        sx /= 8*board.square_size
+        return 'a' + sx
+    }
 
-        piece = sprites.image_for_piece('<')    ; from square
-        sprites.init(sprite_num, piece, sprites.sx_for_col('c'), sprites.sy_for_row(4))   ; #33
-        sprite_num++
-        piece = sprites.image_for_piece('>')    ; to square
-        sprites.init(sprite_num, piece, sprites.sx_for_col('e'), sprites.sy_for_row(4))   ; #34
-        sprite_num++
+    sub row_for_sy(word sy) -> ubyte {
+        sy -= board.board_row * 8
+        sy /= 8*board.square_size
+        return 8 - sy
     }
 
 ;    sub square_screen_col(ubyte col) -> ubyte {
@@ -176,7 +232,11 @@ board {
 }
 
 sprites {
+    const ubyte sprite_num_crosshair1 = 33
+    const ubyte sprite_num_crosshair2 = 34
     const ubyte palette_offset_color = 32
+    const ubyte palette_offset_color_crosshair = palette_offset_color + 16
+
     const uword sprite_data_base = $04000 >> 5      ; pre-shifted for vera
     const uword VERA_SPRITEREGS = $fc00
 
@@ -184,6 +244,7 @@ sprites {
         cx16.VERA_DC_VIDEO |= %01000000             ; enable sprites globally
     }
 
+    ; sprite 0 = the mouse pointer
     word[35] sprites_x
     word[35] sprites_y
 
@@ -220,7 +281,7 @@ sprites {
         cx16.vpoke(1, sprite_pos_regs+3, msb(y))
     }
 
-    ; sprite images are in this order:
+    ; sprite images in the bitmap are in this order:
     ;   0 = R (black rook)
     ;   1 = B (black bishop)
     ;   2 = Q (black queen)
@@ -229,7 +290,7 @@ sprites {
     ;   5 = P (black pawn)
     ;   6-11 are the same pieces, but for the white player ('rbqknp' lowercase)
     ; K (king), Q (queen), R (rook), B (bishop), and N (knight). P (pawn)
-    ;   Then we have '<' and '>'  to signify the crosshairs shows on the starting and target squares.
+    ;   Then we have '<' and '>' in their own bitmap + palette that are the crosshairs.
 
     sub image_for_piece(ubyte piece) -> ubyte {
         when piece {
@@ -256,6 +317,6 @@ sprites {
     }
 
     sub sy_for_row(ubyte row) -> word {
-        return (8-row as word) * board.square_size * 8 + board.board_row *8 +4
+        return (8-row as word) * board.square_size * 8 + board.board_row *8 + 4
     }
 }
