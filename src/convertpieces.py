@@ -53,3 +53,15 @@ if __name__ == "__main__":
             # rgb = (r << 8) | (g << 4) | b
             # print(f"\t.word  ${rgb:04x}")
             outf.write(bytes([g<<4 | b, r]))
+
+    # the two crosshairs
+    img = Image.open("pics/crosshairs.png")
+    with open("CROSSHAIRS.BIN", "wb") as outf:
+        extract(outf, 0, 0, "_crosshair_from")
+        extract(outf, 32, 0, "_crosshair_to")
+    with open("CROSSHAIRS.PAL", "wb") as outf:
+        for r, g, b in convert_palette(img.getpalette()):
+            # note: have to convert to different order when writing as binary file!
+            # rgb = (r << 8) | (g << 4) | b
+            # print(f"\t.word  ${rgb:04x}")
+            outf.write(bytes([g<<4 | b, r]))

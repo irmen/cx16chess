@@ -7,12 +7,7 @@
 
 main {
     sub start() {
-        txt.print("loading...")
-        if not cx16diskio.vload_raw("chesspieces.bin", 8, 0, $4000)
-           or not cx16diskio.vload_raw("chesspieces.pal", 8, 1, $fa00 + sprites.palette_offset*2) {
-            txt.print("load error\n")
-            sys.exit(1)
-        }
+        load_sprites()
         txt.color2(1, 6)
         txt.clear_screen()
         txt.lowercase()
@@ -20,18 +15,19 @@ main {
         board.print_board_bg()
         board.init()
         board.place_pieces()
+        fix_crosshairs()
 
         cx16.mouse_config2(1)
         sprites.enable()
 
         sys.wait(60)
-        word[33] sprites_x = sprites.sprites_x
-        word[33] sprites_y = sprites.sprites_y
+        word[35] sprites_x = sprites.sprites_x
+        word[35] sprites_y = sprites.sprites_y
         ubyte arc = 0
         repeat {
             sys.waitvsync()
             ubyte spr
-            for spr in 1 to 32 {
+            for spr in 1 to 34 {
                 word sx = sprites_x[spr]+(math.sin8(arc) as word)*2
                 word sy = sprites_y[spr]+math.cos8(arc)
                 sprites.move(spr, sx, sy)
@@ -39,7 +35,29 @@ main {
             arc++
         }
     }
+
+    sub load_sprites() {
+        txt.print("loading...")
+        if not cx16diskio.vload_raw("chesspieces.bin", 8, 0, $4000)
+           or not cx16diskio.vload_raw("chesspieces.pal", 8, 1, $fa00 + sprites.palette_offset_color*2) {
+            txt.print("load error\n")
+            sys.exit(1)
+        }
+
+        if not cx16diskio.vload_raw("crosshairs.bin", 8, 0, $4000 + 12*32*32/2)
+           or not cx16diskio.vload_raw("crosshairs.pal", 8, 1, $fa00 + sprites.palette_offset_color*2+16*2) {
+            txt.print("load error\n")
+            sys.exit(1)
+        }
+    }
+
+    sub fix_crosshairs() {
+        ; crosshairs have their own palette after the 16 colors of the pieces.
+        sprites.set_palette_offset(33, sprites.palette_offset_color+16)
+        sprites.set_palette_offset(34, sprites.palette_offset_color+16)
+    }
 }
+
 
 board {
     const ubyte board_col = 20
@@ -132,13 +150,20 @@ board {
         for piece in chessboard {
             piece = sprites.image_for_piece(piece)
             if piece!=255 {
-                 word sx = sprites.col_x((pi & 7) + 'a')
-                 word sy = sprites.col_y((pi >> 3) + 1)
+                 word sx = sprites.sx_for_col((pi & 7) + 'a')
+                 word sy = sprites.sy_for_row((pi >> 3) + 1)
                  sprites.init(sprite_num, piece, sx, sy)
                  sprite_num++
             }
             pi++
         }
+
+        piece = sprites.image_for_piece('<')    ; from square
+        sprites.init(sprite_num, piece, sprites.sx_for_col('c'), sprites.sy_for_row(4))   ; #33
+        sprite_num++
+        piece = sprites.image_for_piece('>')    ; to square
+        sprites.init(sprite_num, piece, sprites.sx_for_col('e'), sprites.sy_for_row(4))   ; #34
+        sprite_num++
     }
 
 ;    sub square_screen_col(ubyte col) -> ubyte {
@@ -151,16 +176,16 @@ board {
 }
 
 sprites {
-    const ubyte palette_offset = 32
+    const ubyte palette_offset_color = 32
     const uword sprite_data_base = $04000 >> 5      ; pre-shifted for vera
     const uword VERA_SPRITEREGS = $fc00
 
     sub enable() {
-        cx16.VERA_DC_VIDEO |= %01000000                         ; enable sprites globally
+        cx16.VERA_DC_VIDEO |= %01000000             ; enable sprites globally
     }
 
-    word[33] sprites_x
-    word[33] sprites_y
+    word[35] sprites_x
+    word[35] sprites_y
 
     sub init(ubyte sprite_num, ubyte bitmap_idx, word x, word y) {
         ; initialize a single 32x32 16 color sprite
@@ -176,9 +201,13 @@ sprites {
         uword sprite_regs = VERA_SPRITEREGS+sprite_num*$0008
         cx16.vpoke(1, sprite_regs, lsb(sprite_data_ptr))              ; sprite data ptr bits 5-12
         cx16.vpoke(1, sprite_regs+1, msb(sprite_data_ptr))            ; mode bit (16 colors) and sprite dataptr bits 13-16
-        cx16.vpoke(1, sprite_regs+7, %10100000 | palette_offset>>4)   ; 32x32 pixels, palette offset
+        cx16.vpoke(1, sprite_regs+7, %10100000 | palette_offset_color>>4)   ; 32x32 pixels, palette offset
         move(sprite_num, x, y)
         cx16.vpoke(1, sprite_regs+6, cx16.vpeek(1, sprite_regs+6) | %00001100)    ; enable sprite, z depth %11 = before both layers
+    }
+
+    sub set_palette_offset(ubyte sprite_num, ubyte offset) {
+        cx16.vpoke(1, VERA_SPRITEREGS+sprite_num*$0008+7, %10100000 | offset>>4)   ; 32x32 pixels, palette offset
     }
 
     sub move(ubyte sprite_num, word x, word y) {
@@ -200,6 +229,7 @@ sprites {
     ;   5 = P (black pawn)
     ;   6-11 are the same pieces, but for the white player ('rbqknp' lowercase)
     ; K (king), Q (queen), R (rook), B (bishop), and N (knight). P (pawn)
+    ;   Then we have '<' and '>'  to signify the crosshairs shows on the starting and target squares.
 
     sub image_for_piece(ubyte piece) -> ubyte {
         when piece {
@@ -215,15 +245,17 @@ sprites {
             'k' -> return 9
             'n' -> return 10
             'p' -> return 11
+            '<' -> return 12
+            '>' -> return 13
             else -> return 255
         }
     }
 
-    sub col_x(ubyte column) -> word {
+    sub sx_for_col(ubyte column) -> word {
         return (column-'a' as uword) * board.square_size * 8 + board.board_col * 8 + 4
     }
 
-    sub col_y(ubyte row) -> word {
+    sub sy_for_row(ubyte row) -> word {
         return (8-row as word) * board.square_size * 8 + board.board_row *8 +4
     }
 }
