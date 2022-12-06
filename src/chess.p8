@@ -5,7 +5,6 @@
 %zeropage basicsafe
 %option no_sysinit
 
-; TODO make the board a more pleasant color, brown + lightbrown?
 ; TODO another board notation in octal, see https://github.com/maksimKorzh/6502-chess/blob/main/src/chess_tty_cc65.c ?
 ;      another source: https://home.hccnet.nl/h.g.muller/board.html
 ;      makes the move generation look easy with the move_offsets lists.
@@ -21,6 +20,7 @@
 
 main {
     sub start() {
+        palette.set_c64pepto()
         load_sprites()
         txt.color2(1, 6)
         txt.clear_screen()
@@ -101,8 +101,10 @@ board {
     const ubyte board_col = 20
     const ubyte board_row = 5
     const ubyte square_size = 5
-    const ubyte white_square_color = 15
-    const ubyte black_square_color = 12
+    const ubyte white_square_color = 8   ; 15
+    const ubyte black_square_color = 9   ; 12
+    const ubyte board_border_color = 12
+    const ubyte labels_color = 3
 
     ; lowercase 'rnbqkbnr' and 'p' -> white player's pieces
     ; uppercase 'RNBQKBNR' and 'P' -> black player's pieces
@@ -155,7 +157,7 @@ board {
         ubyte col = board_col
         ubyte row = board_row
         ubyte line
-        txt.color(9)
+        txt.color(board_border_color)
         for line in row to row+8*square_size-1 {
             txt.plot(col-1, line)
             txt.chrout($aa)  ; txt.chrout('▕')
@@ -194,6 +196,7 @@ board {
         txt.chrout('\x92') ; reverse video off
 
         row += 1
+        txt.color(labels_color)
         ubyte labelcol = col + 2
         ubyte label
         for label in 'A' to 'H' {
