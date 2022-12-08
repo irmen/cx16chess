@@ -5,18 +5,11 @@
 %zeropage basicsafe
 %option no_sysinit
 
-; TODO another board notation in octal, see https://github.com/maksimKorzh/6502-chess/blob/main/src/chess_tty_cc65.c ?
-;      another source: https://home.hccnet.nl/h.g.muller/board.html
-;      makes the move generation look easy with the move_offsets lists.
+; references for tiny chess:
+; https://github.com/maksimKorzh/6502-chess/blob/main/src/chess_tty_cc65.c ?
+; https://home.hccnet.nl/h.g.muller/board.html
+;    makes the move generation look easy with the move_offsets lists.
 
-
-; We use 16 + 16 + 2 = 34 sprites (+ the system mouse pointer as sprite 0).
-; Sprite 0   = system mouse pointer.
-;    First 8 sprites (1-8) = black pieces  RNBQKBNR
-;  Second 8 sprites (9-16) = black pawns   PPPPPPPP
-;  Third 8 sprites (17-24) = white pawns   pppppppp
-; Fourth 8 sprites (25-32) = white pieces  rnbqkbnr
-;  Last 2 sprites (33, 34) = crosshair 1, crosshair 2
 
 main {
     sub start() {
@@ -43,13 +36,13 @@ main {
             demo_flash_crosshairs()
             ubyte buttons = cx16.mouse_pos()
             if buttons {
-                ubyte col = board.col_for_sx(cx16.r0s)
-                ubyte row = board.row_for_sy(cx16.r1s)
-                sprites.move(sprites.sprite_num_crosshair1, sprites.sx_for_col(col), sprites.sy_for_row(row))
-                txt.plot(10, 10)
-                txt.chrout(col)
-                txt.chrout('-')
-                txt.chrout(row + '0')
+                ubyte ci = board.cell_for_screen(cx16.r0s, cx16.r1s)
+                if ci & $88 == 0 {
+                    sprites.move(sprites.sprite_num_crosshair1, sprites.sx_for_cell(ci), sprites.sy_for_cell(ci))
+
+                    txt.plot(10,10)
+                    txt.print(board.notation_for_cell(ci))
+                }
             }
         }
     }
@@ -94,9 +87,26 @@ main {
 
 board {
     %option align_page
-    ubyte[64] chessboard
-    str black_pieces_row = "RNBQKBNR"
-    str white_pieces_row = "rnbqkbnr"
+    ubyte[128] cells = [
+        'R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R',    0,0,0,0,0,0,0,0,     ; black pieces
+        'P', 'P', 'P', 'P', 'P', 'P', 'P', 'P',    0,0,0,0,0,0,0,0,     ; black pawns
+          0,   0,   0,   0,   0,   0,   0,   0,    0,0,0,0,0,0,0,0,
+          0,   0,   0,   0,   0,   0,   0,   0,    0,0,0,0,0,0,0,0,
+          0,   0,   0,   0,   0,   0,   0,   0,    0,0,0,0,0,0,0,0,
+          0,   0,   0,   0,   0,   0,   0,   0,    0,0,0,0,0,0,0,0,
+        'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p',    0,0,0,0,0,0,0,0,     ; white pawns
+        'r', 'n', 'b', 'q', 'k', 'b', 'n', 'r',    0,0,0,0,0,0,0,0      ; white pieces
+    ]
+
+    ; the board is set up as an array with special 'octal' position encoding:
+    ; 00 01 02 03 04 05 06 07       08 09 0a 0b 0c 0d 0e 0f
+    ; 10 11 12 13 14 15 16 17       18 19 1a 1b 1c 1d 1e 1f
+    ;   ...
+    ; 60 61 62 63 64 65 66 67       68 69 6a 6b 6c 6d 6e 6f
+    ; 70 71 72 73 74 75 76 77       78 79 7a 7b 7c 7d 7e 7f
+    ; only board positions where the nibbles are <=7 are valid
+    ; moves that get you outside of the board have the 4th bit set in one or both nibbles
+    ; so validity of moves can be easily checked by anding with $88
 
     const ubyte board_col = 20
     const ubyte board_row = 5
@@ -106,51 +116,43 @@ board {
     const ubyte board_border_color = 12
     const ubyte labels_color = 3
 
-    ; lowercase 'rnbqkbnr' and 'p' -> white player's pieces
-    ; uppercase 'RNBQKBNR' and 'P' -> black player's pieces
-    ; something else -> no piece on this square
-    ; row 0 of the chessboard array = bottom row (1) on screen
-    ; row 7 of the chessboard array = top row (8) on screen
-    ; column 0-7 in the array = column a-h on screen
-
     sub init() {
-        sys.memset(&chessboard+2*8, len(chessboard)-2*8, 0)
-        sys.memset(&chessboard+1*8, 8, 'p')
-        sys.memset(&chessboard+6*8, 8, 'P')
-        sys.memcopy(white_pieces_row, &chessboard+0*8, 8)
-        sys.memcopy(black_pieces_row, &chessboard+7*8, 8)
+        ; nothing yet
     }
 
     sub place_pieces_initial() {
-        ubyte sprite_num = 1
-        place(black_pieces_row, 8)  ; black pieces
-        place("PPPPPPPP", 7)        ; black pawns
-        place("pppppppp", 2)        ; white pawns
-        place(white_pieces_row, 1)  ; white pieces
-        ; now the 2 crosshairs in sprite 33 and 34
+        ; Scan the cells and place a sprite for the cell containing a piece
+        ; this will result in 32 sprites being used for all initial pieces (16 black, 16 white).
+        ;  Sprite 0 = system mouse pointer.
+        ;    First 8 sprites (1-8) = black pieces  RNBQKBNR
+        ;  Second 8 sprites (9-16) = black pawns   PPPPPPPP
+        ;  Third 8 sprites (17-24) = white pawns   pppppppp
+        ; Fourth 8 sprites (25-32) = white pieces  rnbqkbnr
+        ;  Last 2 sprites (33, 34) = crosshair 1, crosshair 2
         ; the crosshairs will fall behind the pieces.
         ; note that they have their own palette after the 16 colors of the pieces.
-        ubyte piece = sprites.image_for_piece('<')
-        sprites.init(sprite_num, piece, sprites.sx_for_col('c'), sprites.sy_for_row(4))
-        sprites.set_palette_offset(sprite_num, sprites.palette_offset_color_crosshair)
-        sprite_num++
-        piece = sprites.image_for_piece('>')
-        sprites.init(sprite_num, piece, sprites.sx_for_col('e'), sprites.sy_for_row(4))
-        sprites.set_palette_offset(sprite_num, sprites.palette_offset_color_crosshair)
-        sprite_num++
-
-        sub place(str pieces, ubyte row) {
-            ubyte col
-            for col in 0 to 7 {
-                piece = sprites.image_for_piece(pieces[col])
-                if piece!=255 {
-                     word sx = sprites.sx_for_col(col + 'a')
-                     word sy = sprites.sy_for_row(row)
-                     sprites.init(sprite_num, piece, sx, sy)
-                     sprite_num++
+        ubyte sprite_num = 1
+        ubyte piece
+        ubyte ci
+        for ci in 0 to 127 {
+            if ci & $88 == 0 {
+                ; valid cell on the board
+                if cells[ci] {
+                    piece = sprites.image_for_piece(cells[ci])
+                    sprites.init(sprite_num, piece, sprites.sx_for_cell(ci), sprites.sy_for_cell(ci))
+                    sprite_num++
                 }
             }
         }
+
+        piece = sprites.image_for_piece('<')
+        sprites.init(sprite_num, piece, sprites.sx_for_cell($43), sprites.sy_for_cell($45))
+        sprites.set_palette_offset(sprite_num, sprites.palette_offset_color_crosshair)
+        sprite_num++
+        piece = sprites.image_for_piece('>')
+        sprites.init(sprite_num, piece, sprites.sx_for_cell($45), sprites.sy_for_cell($45))
+        sprites.set_palette_offset(sprite_num, sprites.palette_offset_color_crosshair)
+        sprite_num++
     }
 
     sub print_board_bg() {
@@ -213,16 +215,19 @@ board {
         }
     }
 
-    sub col_for_sx(word sx) -> ubyte {
+    sub cell_for_screen(word sx, word sy) -> ubyte {
         sx -= board.board_col * 8
         sx /= 8*board.square_size
-        return 'a' + sx
-    }
-
-    sub row_for_sy(word sy) -> ubyte {
         sy -= board.board_row * 8
         sy /= 8*board.square_size
-        return 8 - sy
+        return (sy << 4) | sx
+    }
+
+    sub notation_for_cell(ubyte ci) -> str {
+        str notation = "??"
+        notation[0] = 'a' + (ci & $0f)
+        notation[1] = ('1'-8) + ((~ci & $f0) >>4)
+        return notation
     }
 
 ;    sub square_screen_col(ubyte col) -> ubyte {
@@ -315,11 +320,12 @@ sprites {
         }
     }
 
-    sub sx_for_col(ubyte column) -> word {
-        return (column-'a' as uword) * board.square_size * 8 + board.board_col * 8 + 4
+    sub sx_for_cell(ubyte ci) -> word {
+        return (ci & $0f as word) * board.square_size * 8 + board.board_col * 8 + 4
     }
 
-    sub sy_for_row(ubyte row) -> word {
-        return (8-row as word) * board.square_size * 8 + board.board_row *8 + 4
+    sub sy_for_cell(ubyte ci) -> word {
+        return ((ci & $f0)>>1 as word) * board.square_size + board.board_row *8 + 4
     }
+
 }
