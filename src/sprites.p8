@@ -8,10 +8,10 @@ sprites {
 
     const uword sprite_data_base = $04000 >> 5      ; pre-shifted for vera
     const uword VERA_SPRITEREGS = $fc00
-
     ; sprite 0 = the mouse pointer
     word[35] sprites_x
     word[35] sprites_y
+    ubyte[35] sprites_cell
 
     sub init() {
         ; Scan the cells and place a sprite for the cell containing a piece
@@ -25,6 +25,7 @@ sprites {
         ; the crosshairs will fall behind the pieces.
         ; note that they have their own palette after the 16 colors of the pieces.
         cx16.VERA_DC_VIDEO |= %01000000             ; enable sprites globally
+        sprites_cell[0] = $ff
         ubyte sprite_num = 1
         ubyte piece
         ubyte ci
@@ -32,34 +33,21 @@ sprites {
             if ci & $88 == 0 {              ; valid cell on the board?
                 piece = board.cells[ci]
                 if piece {
-                    if piece & 128
-                        init_sprite(sprite_num, image_for_piece(piece), 100, (sprite_num & 15) * 16 + (60 as word))
-                    else
-                        init_sprite(sprite_num, image_for_piece(piece), 500, (sprite_num & 15) * 16 + (60 as word))
-                    sprite_num++
-                }
-            }
-        }
-        sys.wait(30)
-        sprite_num = 1
-        for ci in 0 to 127 {
-            if ci & $88 == 0 {              ; valid cell on the board?
-                piece = board.cells[ci]
-                if piece {
-                    move_to(sprite_num, sx_for_cell(ci), sy_for_cell(ci), 8)
+                    init_sprite(sprite_num, image_for_piece(piece), sx_for_cell(ci), sy_for_cell(ci))
+                    sprites_cell[sprite_num] = ci
                     sprite_num++
                 }
             }
         }
 
         piece = image_for_piece('<')
-        init_sprite(sprite_num, piece, sx_for_cell($43), sy_for_cell($45))
-        set_palette_offset(sprite_num, palette_offset_color_crosshair)
-        sprite_num++
+        init_sprite(sprite_num_crosshair1, piece, sx_for_cell($43), sy_for_cell($43))
+        set_palette_offset(sprite_num_crosshair1, palette_offset_color_crosshair)
+        sprites_cell[sprite_num_crosshair1] = $43
         piece = image_for_piece('>')
-        init_sprite(sprite_num, piece, sx_for_cell($45), sy_for_cell($45))
-        set_palette_offset(sprite_num, palette_offset_color_crosshair)
-        sprite_num++
+        init_sprite(sprite_num_crosshair2, piece, sx_for_cell($45), sy_for_cell($45))
+        set_palette_offset(sprite_num_crosshair2, palette_offset_color_crosshair)
+        sprites_cell[sprite_num_crosshair2] = $45
     }
     
     sub init_sprite(ubyte sprite_num, ubyte bitmap_idx, word x, word y) {
@@ -93,6 +81,17 @@ sprites {
         cx16.vpoke(1, sprite_pos_regs+1, msb(x))
         cx16.vpoke(1, sprite_pos_regs+2, lsb(y))
         cx16.vpoke(1, sprite_pos_regs+3, msb(y))
+    }
+
+    sub move_between_cells(ubyte from_cell, ubyte to_cell) {
+        ubyte sprite_num
+        for sprite_num in 0 to len(sprites_cell)-1 {
+            if sprites_cell[sprite_num]==from_cell {
+                move_to(sprite_num, sx_for_cell(to_cell), sy_for_cell(to_cell), 8)
+                sprites_cell[sprite_num] = to_cell
+                return
+            }
+        }
     }
 
     sub move_to(ubyte sprite_num, word dest_x, word dest_y, ubyte speed) {
