@@ -41,13 +41,12 @@ sprites {
         }
 
         piece = image_for_piece('<')
-        init_sprite(sprite_num_crosshair1, piece, sx_for_cell($43), sy_for_cell($43))
+        init_sprite(sprite_num_crosshair1, piece, -32, -32)     ; outside screen
         set_palette_offset(sprite_num_crosshair1, palette_offset_color_crosshair)
-        sprites_cell[sprite_num_crosshair1] = $43
         piece = image_for_piece('>')
-        init_sprite(sprite_num_crosshair2, piece, sx_for_cell($45), sy_for_cell($45))
+        init_sprite(sprite_num_crosshair2, piece, -32, -32)     ; outside screen
         set_palette_offset(sprite_num_crosshair2, palette_offset_color_crosshair)
-        sprites_cell[sprite_num_crosshair2] = $45
+        set_invalid_crosshair2()
     }
     
     sub init_sprite(ubyte sprite_num, ubyte bitmap_idx, word x, word y) {
@@ -87,7 +86,7 @@ sprites {
         ubyte sprite_num
         for sprite_num in 0 to len(sprites_cell)-1 {
             if sprites_cell[sprite_num]==from_cell {
-                move_to(sprite_num, sx_for_cell(to_cell), sy_for_cell(to_cell), 8)
+                move_to(sprite_num, sx_for_cell(to_cell), sy_for_cell(to_cell), 32)
                 sprites_cell[sprite_num] = to_cell
                 return
             }
@@ -95,17 +94,32 @@ sprites {
     }
 
     sub move_to(ubyte sprite_num, word dest_x, word dest_y, ubyte speed) {
-        cx16.r10s = sprites_x[sprite_num]
-        cx16.r11s = sprites_y[sprite_num]
-        word dx = (dest_x - cx16.r10s) / speed
-        word dy = (dest_y - cx16.r11s) / speed
+        ; to move more precisely, first scale the coordinates by a factor of four.
+        cx16.r10s = sprites_x[sprite_num] * 4
+        cx16.r11s = sprites_y[sprite_num] * 4
+        word dx = (dest_x*4 - cx16.r10s) / speed
+        word dy = (dest_y*4 - cx16.r11s) / speed
         repeat speed {
             cx16.r10s += dx
             cx16.r11s += dy
-            move(sprite_num, cx16.r10s, cx16.r11s)
             sys.waitvsync()
+            move(sprite_num, cx16.r10s/4, cx16.r11s/4)
         }
         move(sprite_num, dest_x, dest_y)
+    }
+
+    sub set_invalid_crosshair2() {
+        const uword sprite_data_ptr = VERA_SPRITEREGS+sprite_num_crosshair2*$0008
+        uword bitmap = sprite_data_base + (image_for_piece('>')*$0010)
+        cx16.vpoke(1, sprite_data_ptr, lsb(bitmap))              ; sprite data ptr bits 5-12
+        cx16.vpoke(1, sprite_data_ptr+1, msb(bitmap))            ; mode bit (16 colors) and sprite dataptr bits 13-16
+    }
+
+    sub set_valid_crosshair2() {
+        const uword sprite_data_ptr = VERA_SPRITEREGS+sprite_num_crosshair2*$0008
+        uword bitmap = sprite_data_base + (image_for_piece('<')*$0010)
+        cx16.vpoke(1, sprite_data_ptr, lsb(bitmap))              ; sprite data ptr bits 5-12
+        cx16.vpoke(1, sprite_data_ptr+1, msb(bitmap))            ; mode bit (16 colors) and sprite dataptr bits 13-16
     }
 
     ; sprite images in the bitmap are in this order:
