@@ -149,11 +149,11 @@ board {
     ubyte[32] @requirezp possible_moves
 
     sub build_possible_moves(ubyte ci) -> bool {
-        ; makes the array 'possible_moves' as a 0-terminated array of cells that the piece on cell 'ci' could move to
-        ; TODO pawn special moves: only straight 1 or 2 squares if initial move, unless it can take a piece(?)
+        ; makes the array 'possible_moves' as a $ff-terminated array of cells that the piece on cell 'ci' could move to
+        ; TODO pawn special moves: only straight 1 or 2 squares if initial move, unless it can take a piece
         ; TODO castling
         ; TODO en-passant capturing of pawn
-        possible_moves[0] = 0
+        possible_moves[0] = $ff
         ubyte piece = board.cells[ci]
         if not piece
             return false
@@ -202,7 +202,7 @@ board {
             }
         }
 
-        possible_moves[moves_idx] = 0
+        possible_moves[moves_idx] = $ff
         return moves_idx!=0
     }
 }

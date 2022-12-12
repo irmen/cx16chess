@@ -11,6 +11,12 @@
 ; https://home.hccnet.nl/h.g.muller/board.html
 ;    makes the move generation look easy with the move_offsets lists.
 
+; TODO: turns
+; TODO: move log
+; TODO: various move rules see board
+; TODO: pawn promotion
+; TODO: winning/losing, forfeit game, restart game
+; TODO: choose side that you want to play (currently always white)
 
 main {
     sub start() {
@@ -90,7 +96,23 @@ main {
                         txt.print(board.notation_for_cell(to_cell))
                         sprites.move(sprites.sprite_num_crosshair1, -32, -32)   ; offscreen
                         sprites.move(sprites.sprite_num_crosshair2, -32, -32)   ; offscreen
+                        ubyte piece_captured = board.cells[to_cell]
+                        ubyte sprite_captured = 0
+                        if piece_captured {
+                            for sprite_captured in 0 to len(sprites.sprites_cell)-1 {
+                                if sprites.sprites_cell[sprite_captured]==to_cell
+                                    break
+                            }
+                        }
                         move_piece(from_cell, to_cell)
+                        if piece_captured {
+                            if piece_captured & 128 {
+                                sprites.move_to(sprite_captured, 80, (sprite_captured & 15) as word *16+32, 32)   ; black piece captured
+                            } else {
+                                sprites.move_to(sprite_captured, 640-80-32, (sprite_captured & 15) as word *16+32, 32)   ; white piece captured
+                            }
+                            sprites.sprites_cell[sprite_captured] = $ff
+                        }
                     }
                 } else {
                     button_pressed = false
@@ -103,25 +125,12 @@ main {
             cx16.r1L = 0
             repeat {
                 cx16.r0L = board.possible_moves[cx16.r1L]
-                if not cx16.r0L
+                if cx16.r0L & $88
                     return false
                 if cx16.r0L == to_ci
                     return true
                 cx16.r1L++
             }
-        }
-
-        sub debug_draw_moves(ubyte cell, bool colored) {
-            if not board.build_possible_moves(cell)
-                return
-            ubyte move_idx=0
-            ubyte color = 0
-            if colored
-                color = 10
-            do {
-                board.print_square(board.possible_moves[move_idx], color)
-                move_idx++
-            } until not board.possible_moves[move_idx]
         }
     }
 
