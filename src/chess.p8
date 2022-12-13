@@ -11,116 +11,191 @@
 ; https://home.hccnet.nl/h.g.muller/board.html
 ;    makes the move generation look easy with the move_offsets lists.
 
-; TODO: turns
-; TODO: move log
-; TODO: various move rules see board
-; TODO: pawn promotion
-; TODO: winning/losing, forfeit game, restart game
-; TODO: choose side that you want to play (currently always white)
+; TODO pawn special moves: only straight 1 or 2 squares if initial move, unless it can take a piece
+; TODO castling
+; TODO pawn promotion
+; TODO check, checkmate, stalemate (partly?)
+; TODO resignation, restart
+; TODO choose side that you want to play (currently always white)
+; TODO en-passant capturing of pawn
 
 main {
+    ubyte player        ; 1=white, 2=black
+    ubyte turn
+    uword black_time
+    uword white_time
+
     sub start() {
         palette.set_c64pepto()
-        load_resources()
-        txt.color2(1, 6)
-        txt.clear_screen()
         txt.lowercase()
+        cx16.mouse_config2(1)   ; enable mouse cursor (sprite 0)
+        show_instructions()
+        load_resources()
+        new_game()
+        gameloop()
+    }
+
+    sub show_instructions() {
+        txt.clear_screen()
+        txt.color2(13, 6)
+        txt.plot(15, 6)
+        txt.print("The game of Chess")
+        txt.color(15)
+        txt.plot(10, 10)
+        txt.print("Pieces are moved using the mouse.")
+        txt.plot(10, 12)
+        txt.print("Mouse button 1 selects a piece, then dragging to")
+        txt.plot(12, 13)
+        txt.print("the desired destination square prepares a move.")
+        txt.plot(10, 15)
+        txt.print("You can freely change your mind,")
+        txt.plot(12, 16)
+        txt.print("until you confirm the move by pressing mouse button 2.")
+        txt.plot(10, 20)
+        txt.print("At this time, you'll always play with \x05white\x9b,")
+        txt.plot(12, 21)
+        txt.print("and the computer will play \x90black.")
+        txt.plot(10, 25)
+        txt.color(14)
+        txt.print("Press any mouse button to continue.")
+        txt.plot(58, 57)
+        txt.color(10)
+        txt.print("A game by DesertFish")
+        txt.plot(62, 58)
+        txt.print("written in Prog8")
+        while not cx16.mouse_pos() {
+            ; nothing
+        }
+    }
+
+    sub load_resources() {
+        txt.print("loading...")
+        if not cx16diskio.vload_raw("chesspieces.bin", 8, 0, $4000)
+           or not cx16diskio.vload_raw("chesspieces.pal", 8, 1, $fa00 + sprites.palette_offset_color*2) {
+            txt.print("load error\n")
+            sys.exit(1)
+        }
+
+        if not cx16diskio.vload_raw("crosshairs.bin", 8, 0, $4000 + 12*32*32/2)
+           or not cx16diskio.vload_raw("crosshairs.pal", 8, 1, $fa00 + sprites.palette_offset_color_crosshair*2) {
+            txt.print("load error\n")
+            sys.exit(1)
+        }
+    }
+
+    sub new_game() {
+        txt.clear_screen()
         board.init()
         sprites.init()
-        cx16.mouse_config2(1)   ; enable mouse cursor (sprite 0)
-
-        txt.color(7)
-        txt.plot(15,55)
-        txt.print("Use mouse and button 1 to select and drag a piece.")
-        txt.plot(15,56)
-        txt.print("Use button 2 to confirm a valid move.")
-
-        demo_move_pieces()
+        player = 1      ; white player always starts, for now.
+        turn = 0
+        black_time = 0
+        white_time = 0
     }
 
-    sub move_piece(ubyte from_ci, ubyte to_ci) {
-        sprites.move_between_cells(from_ci, to_ci)
-        board.cells[to_ci] = board.cells[from_ci]
-        board.cells[from_ci] = 0
-    }
-
-    ubyte from_cell = $ff
-    ubyte to_cell = $ff
-    bool button_pressed = false
-
-    sub demo_move_pieces() {
+    sub gameloop() {
+        ubyte from_cell = $ff
+        ubyte to_cell = $ff
+        bool button_pressed = false
         ubyte ci
+
+        show_player()
+        c64.SETTIM(0,0,0)
+
         repeat {
             sys.waitvsync()
             flash_crosshairs()
-            ubyte buttons = cx16.mouse_pos()
+            update_clocks()
+            ubyte buttons = cx16.mouse_pos()  ; also puts mouse pos in r0s and r1s
             ci = board.cell_for_screen(cx16.r0s, cx16.r1s)
             if ci & $88 == 0 {
-                if buttons & 1 {
-                    if button_pressed {
-                        ; dragging - update target square
-                        to_cell = $ff
-                        if ci!=from_cell and from_cell & $88 == 0 {
-                            sprites.move(sprites.sprite_num_crosshair2, sprites.sx_for_cell(ci), sprites.sy_for_cell(ci))
-                            if valid_move(from_cell, ci) {
-                                to_cell = ci
-                                sprites.set_valid_crosshair2()
-                            } else {
-                                sprites.set_invalid_crosshair2()
-                            }
-                        }
-                    } else {
-                        ; first click - update start square
-                        sprites.move(sprites.sprite_num_crosshair1, sprites.sx_for_cell(ci), sprites.sy_for_cell(ci))
-                        sprites.move(sprites.sprite_num_crosshair2, -32, -32)   ; offscreen
-                        to_cell = $ff
-                        from_cell = $ff
-                        if board.cells[ci] {
-                            void board.build_possible_moves(ci)
-                            from_cell = ci
-                        }
-                    }
-                    button_pressed = true
-                } else if buttons & 2 {
-                    ; Confirm move
-                    txt.plot(30,2)
-                    txt.color(13)
-                    if from_cell & $88 or to_cell & $88  {
-                        txt.print("invalid         ")
-                    } else {
-                        txt.print("move: ")
-                        txt.chrout(board.cells[from_cell])
-                        txt.spc()
-                        txt.print(board.notation_for_cell(from_cell))
-                        txt.chrout('-')
-                        txt.print(board.notation_for_cell(to_cell))
-                        sprites.move(sprites.sprite_num_crosshair1, -32, -32)   ; offscreen
-                        sprites.move(sprites.sprite_num_crosshair2, -32, -32)   ; offscreen
-                        ubyte piece_captured = board.cells[to_cell]
-                        ubyte sprite_captured = 0
-                        if piece_captured {
-                            for sprite_captured in 0 to len(sprites.sprites_cell)-1 {
-                                if sprites.sprites_cell[sprite_captured]==to_cell
-                                    break
-                            }
-                        }
-                        move_piece(from_cell, to_cell)
-                        if piece_captured {
-                            if piece_captured & 128 {
-                                sprites.move_to(sprite_captured, 80, (sprite_captured & 15) as word *16+32, 32)   ; black piece captured
-                            } else {
-                                sprites.move_to(sprite_captured, 640-80-32, (sprite_captured & 15) as word *16+32, 32)   ; white piece captured
-                            }
-                            sprites.sprites_cell[sprite_captured] = $ff
-                        }
-                    }
-                } else {
+                if buttons & 1
+                    prepare_move()
+                else if buttons & 2
+                    confirm_move()
+                else
                     button_pressed = false
+            }
+        }
+
+        sub update_clocks() {
+            txt.color(12)
+            if c64.RDTIM16()>59 {
+                c64.SETTIM(0,0,0)
+                when player {
+                    1 -> white_time++
+                    2 -> black_time++
+                }
+            }
+
+            print_time(1, white_time)
+            print_time(2, black_time)
+
+            sub print_time(ubyte whose, uword seconds) {
+                when whose {
+                    1 -> {
+                        txt.plot(2, 57)
+                        txt.print("white ")
+                    }
+                    2 -> {
+                        txt.plot(2, 54)
+                        txt.print("black ")
+                    }
+                }
+                uword hours = seconds/(60*60)
+                seconds -= hours*60*60
+                uword minutes = seconds/60
+                seconds -= minutes*60
+                txt.print_ub0(lsb(hours))
+                txt.print_ub0(lsb(minutes))
+                txt.print_ub0(lsb(seconds))
+                when whose {
+                    1 -> fixup(57)
+                    2 -> fixup(54)
+                }
+
+                sub fixup(ubyte row) {
+                    txt.plot(8, row)
+                    txt.chrout(' ')
+                    txt.plot(11, row)
+                    txt.chrout(':')
+                    txt.plot(14, row)
+                    txt.chrout(':')
                 }
             }
         }
 
-        sub valid_move(ubyte from_ci, ubyte to_ci) -> bool {
+        sub prepare_move() {
+            if button_pressed {
+                ; dragging - update target square
+                to_cell = $ff
+                if ci!=from_cell and from_cell & $88 == 0 {
+                    sprites.move(sprites.sprite_num_crosshair2, sprites.sx_for_cell(ci), sprites.sy_for_cell(ci))
+                    if is_valid_move(from_cell, ci) {
+                        to_cell = ci
+                        sprites.set_valid_crosshair2()
+                    } else {
+                        sprites.set_invalid_crosshair2()
+                    }
+                }
+            } else {
+                ; first click - update start square
+                sprites.move(sprites.sprite_num_crosshair1, sprites.sx_for_cell(ci), sprites.sy_for_cell(ci))
+                sprites.move(sprites.sprite_num_crosshair2, -32, -32)   ; offscreen
+                to_cell = $ff
+                from_cell = $ff
+                ubyte piece = board.cells[ci]
+                if piece {
+                    if (player==1 and piece&$80==0) or (player==2 and piece&$80) {
+                        void board.build_possible_moves(ci)
+                        from_cell = ci
+                    }
+                }
+            }
+            button_pressed = true
+        }
+
+        sub is_valid_move(ubyte from_ci, ubyte to_ci) -> bool {
             ; check if the target cell is in the generated move list.
             cx16.r1L = 0
             repeat {
@@ -131,6 +206,75 @@ main {
                     return true
                 cx16.r1L++
             }
+        }
+
+        sub confirm_move() {
+            if from_cell & $88 or to_cell & $88
+                return      ; move is invalid
+            log_move()
+            sprites.move(sprites.sprite_num_crosshair1, -32, -32)   ; offscreen
+            sprites.move(sprites.sprite_num_crosshair2, -32, -32)   ; offscreen
+            ubyte piece_captured = board.cells[to_cell]
+            ubyte sprite_captured = sprites.sprite_in_cell(to_cell)
+            move_piece()
+            if piece_captured {
+                if piece_captured & 128 {
+                    sprites.move_to(sprite_captured, 32, (sprite_captured & 15) as word *16+50, 32)   ; black piece captured
+                } else {
+                    sprites.move_to(sprite_captured, 70, (sprite_captured & 15) as word *16+50, 32)   ; white piece captured
+                }
+                sprites.sprites_cell[sprite_captured] = $ff
+            }
+        }
+
+        sub log_move() {
+            ubyte move = turn / 2
+            txt.color(14)
+            if turn & 1 {
+                txt.plot(72, move+board.board_row+1)
+            } else {
+                txt.plot(62, move+board.board_row+1)
+                txt.print_ub(move+1)
+                txt.chrout('.')
+                txt.spc()
+            }
+            ubyte piece = board.cells[from_cell]
+            if piece!='p' and piece!='P'
+                txt.chrout(board.cells[from_cell] | $80)
+            txt.print(board.notation_for_cell(from_cell))
+            if board.cells[to_cell]
+                txt.chrout('x')
+            txt.print(board.notation_for_cell(to_cell))
+            turn++
+            player++
+            if player==3
+                player=1
+            c64.SETTIM(0,0,0)
+            show_player()
+        }
+
+        sub move_piece() {
+            sprites.move_between_cells(from_cell, to_cell)
+            board.cells[to_cell] = board.cells[from_cell]
+            board.cells[from_cell] = 0
+        }
+
+        sub show_player() {
+            txt.plot(30,55)
+            txt.color(15)
+            txt.print("It is ")
+            when player {
+                1 -> {
+                    txt.color(1)
+                    txt.print("white")
+                }
+                2 -> {
+                    txt.color(0)
+                    txt.print("black")
+                }
+            }
+            txt.color(15)
+            txt.print("'s turn.")
         }
     }
 
@@ -149,20 +293,5 @@ main {
         }
         cx16.vpoke(1, palette_dest, first_lo)
         cx16.vpoke(1, palette_dest+1, first_hi)
-    }
-
-    sub load_resources() {
-        txt.print("loading...")
-        if not cx16diskio.vload_raw("chesspieces.bin", 8, 0, $4000)
-           or not cx16diskio.vload_raw("chesspieces.pal", 8, 1, $fa00 + sprites.palette_offset_color*2) {
-            txt.print("load error\n")
-            sys.exit(1)
-        }
-
-        if not cx16diskio.vload_raw("crosshairs.bin", 8, 0, $4000 + 12*32*32/2)
-           or not cx16diskio.vload_raw("crosshairs.pal", 8, 1, $fa00 + sprites.palette_offset_color_crosshair*2) {
-            txt.print("load error\n")
-            sys.exit(1)
-        }
     }
 }

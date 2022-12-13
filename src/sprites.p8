@@ -83,14 +83,9 @@ sprites {
     }
 
     sub move_between_cells(ubyte from_cell, ubyte to_cell) {
-        ubyte sprite_num
-        for sprite_num in 0 to len(sprites_cell)-1 {
-            if sprites_cell[sprite_num]==from_cell {
-                move_to(sprite_num, sx_for_cell(to_cell), sy_for_cell(to_cell), 32)
-                sprites_cell[sprite_num] = to_cell
-                return
-            }
-        }
+        ubyte sprite_num = sprite_in_cell(from_cell)
+        move_to(sprite_num, sx_for_cell(to_cell), sy_for_cell(to_cell), 32)
+        sprites_cell[sprite_num] = to_cell
     }
 
     sub move_to(ubyte sprite_num, word dest_x, word dest_y, ubyte speed) {
@@ -159,6 +154,14 @@ sprites {
 
     sub sy_for_cell(ubyte ci) -> word {
         return ((ci & $f0)>>1 as word) * board.square_size + board.board_row *8 + 4
+    }
+
+    sub sprite_in_cell(ubyte ci) -> ubyte {
+        for cx16.r0L in 0 to len(sprites.sprites_cell)-1 {
+            if sprites.sprites_cell[cx16.r0L]==ci
+                return cx16.r0L
+        }
+        return 0
     }
 
 }
