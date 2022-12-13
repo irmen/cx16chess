@@ -18,6 +18,7 @@
 ; TODO resignation, restart
 ; TODO choose side that you want to play (currently always white)
 ; TODO en-passant capturing of pawn
+; TODO fix vga/composite screen mode (see gfx2)
 
 main {
     ubyte player        ; 1=white, 2=black
@@ -26,13 +27,106 @@ main {
     uword white_time
 
     sub start() {
-        palette.set_c64pepto()
-        txt.lowercase()
         cx16.mouse_config2(1)   ; enable mouse cursor (sprite 0)
-        show_instructions()
+        ; show_titlescreen_lores()
+        show_titlescreen_hires()
+
+        cx16.mouse_config2(1)   ; enable mouse cursor (sprite 0)
+        txt.clear_screen()
+        txt.lowercase()
+        palette.set_c64pepto()
+        ; TODO no longer needed if using title screen pic:  show_instructions()
         load_resources()
         new_game()
         gameloop()
+    }
+
+    sub show_titlescreen_lores() {
+        void cx16.screen_mode(128, false)   ; 256 colors lores
+        if not cx16diskio.vload_raw("titlescreen.pal", 8, 1, $fa00)
+           or not cx16diskio.vload_raw("titlescreen.bin", 8, 0, $0000) {
+            void cx16.screen_mode(0, false)
+            txt.print("load error\n")
+            sys.wait(120)
+            sys.exit(1)
+        }
+        txt.lowercase()
+        txt.color2(15,12)
+        txt.plot(10, 2)
+        txt.print("The game of Chess")
+        txt.color(14)
+        txt.plot(2, 6)
+        txt.print("Pieces are moved using the mouse.")
+        txt.plot(2, 7)
+        txt.print("Mouse button 1 selects a piece,")
+        txt.plot(2, 8)
+        txt.print("then dragging to the desired")
+        txt.plot(2, 9)
+        txt.print("destination square prepares a move.")
+        txt.plot(2, 13)
+        txt.print("You can freely change your mind,")
+        txt.plot(2, 14)
+        txt.print("until you confirm the move")
+        txt.plot(2, 15)
+        txt.print("by pressing mouse button 2.")
+        txt.plot(2, 19)
+        txt.print("At this time, you'll always play")
+        txt.plot(2, 20)
+        txt.print("white and the opponent plays black.")
+        txt.plot(2, 24)
+        txt.color2(13,5)
+        txt.print("Press any mouse button to start.")
+        txt.color2(15,0)
+        txt.plot(0, 28)
+        txt.print("A game by DesertFish")
+        txt.plot(0, 29)
+        txt.print("written in Prog8")
+        while not cx16.mouse_pos() {
+            ; nothing
+        }
+        while cx16.mouse_pos() {
+            ; nothing
+        }
+        void cx16.screen_mode(0, false)
+    }
+
+    sub show_titlescreen_hires() {
+        ; 640x400 16 colors
+        cx16.VERA_CTRL=0
+        cx16.VERA_ADDR_L=0
+        cx16.VERA_ADDR_M=0
+        cx16.VERA_ADDR_H=%00010000  ; autoincrement
+        cx16.memory_fill(&cx16.VERA_DATA0, 65535, 0)    ; first clear screen
+        cx16.memory_fill(&cx16.VERA_DATA0, 64000, 0)    ; first clear screen second half
+        cx16.VERA_DC_VIDEO = (cx16.VERA_DC_VIDEO & %11001111) | %00100000      ; enable only layer 1, no vram for text/tile layer
+        cx16.VERA_DC_HSCALE = 128
+        cx16.VERA_DC_VSCALE = 128
+        cx16.VERA_CTRL = %00000010
+        cx16.VERA_DC_VSTART = 20
+        cx16.VERA_DC_VSTOP = 400 /2 -1 + 20 ; clip off screen that overflows vram
+        cx16.VERA_L1_CONFIG = %00000110     ; 16 colors bitmap mode
+        cx16.VERA_L1_MAPBASE = 0
+        cx16.VERA_L1_TILEBASE = %00000001   ; hires
+
+        ; use blank sprite bitmap as pointer to make it invisible
+        cx16.vpoke(1, sprites.VERA_SPRITEREGS, $a0)
+        cx16.vpoke(1, sprites.VERA_SPRITEREGS+1, $0f)
+
+        if not cx16diskio.vload_raw("titlescreen640.pal", 8, 1, $fa00)
+           or not cx16diskio.vload_raw("titlescreen640.bin", 8, 0, $0000) {
+            sys.reset_system()
+        }
+        while not cx16.mouse_pos() {
+            ; nothing
+        }
+        while cx16.mouse_pos() {
+            ; nothing
+        }
+
+        cx16.VERA_CTRL = %10000000  ; reset vera
+        c64.CINT()
+        txt.fix_autostart_square()
+        txt.lowercase()
     }
 
     sub show_instructions() {
@@ -66,19 +160,24 @@ main {
         while not cx16.mouse_pos() {
             ; nothing
         }
+        while cx16.mouse_pos() {
+            ; nothing
+        }
     }
 
     sub load_resources() {
         txt.print("loading...")
-        if not cx16diskio.vload_raw("chesspieces.bin", 8, 0, $4000)
-           or not cx16diskio.vload_raw("chesspieces.pal", 8, 1, $fa00 + sprites.palette_offset_color*2) {
+        if not cx16diskio.vload_raw("chesspieces.pal", 8, 1, $fa00 + sprites.palette_offset_color*2)
+           or not cx16diskio.vload_raw("chesspieces.bin", 8, 0, $4000) {
             txt.print("load error\n")
+            sys.wait(120)
             sys.exit(1)
         }
 
-        if not cx16diskio.vload_raw("crosshairs.bin", 8, 0, $4000 + 12*32*32/2)
-           or not cx16diskio.vload_raw("crosshairs.pal", 8, 1, $fa00 + sprites.palette_offset_color_crosshair*2) {
+        if not cx16diskio.vload_raw("crosshairs.pal", 8, 1, $fa00 + sprites.palette_offset_color_crosshair*2)
+           or not cx16diskio.vload_raw("crosshairs.bin", 8, 0, $4000 + 12*32*32/2) {
             txt.print("load error\n")
+            sys.wait(120)
             sys.exit(1)
         }
     }
