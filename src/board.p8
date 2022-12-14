@@ -159,8 +159,9 @@ board {
         ubyte @requirezp vector_idx = 0
         ubyte @requirezp moves_idx = 0
         ubyte vector = vectors[0]
-        ubyte dest_ci
-        ubyte piece2
+        ubyte @zp dest_ci
+        ubyte @zp piece2
+
         if piece in "RrBbQq" {
             ; multi-square moves
             while vector {
@@ -185,17 +186,49 @@ board {
             }
         } else {
             ; single-square move
-            while vector {
-                dest_ci = ci + vector
-                if dest_ci & $88 == 0 {
-                    piece2 = board.cells[dest_ci]
-                    if not piece2 or (piece^piece2) & $80 {     ; check for opponent's piece
+
+            if piece & $7f == 'p' {
+                ; special rules for pawn:
+                ; cannot move diagonally, UNLESS capturing piece
+                ; can only move 1 square, UNLESS starting on original starting row and unobstructed
+                while vector {
+                    ubyte diagonally = vector & 1
+                    bool move_ok = false
+                    dest_ci = ci + vector
+                    if dest_ci & $88 == 0 {
+                        piece2 = board.cells[dest_ci]
+                        if diagonally and piece2 and (piece^piece2) & $80 {
+                            move_ok = true
+                        } else if not diagonally and not piece2 {
+                            ; check if not obstructed if moving 2 squares
+                            if ci & $f0 == $60
+                                move_ok = not board.cells[ci - $10]
+                            else if ci & $f0 == $10
+                                move_ok = not board.cells[ci + $10]
+                            else
+                                move_ok = true
+                        }
+                    }
+                    if move_ok {
                         possible_moves[moves_idx] = dest_ci
                         moves_idx++
                     }
+                    vector_idx++
+                    vector = vectors[vector_idx]
                 }
-                vector_idx++
-                vector = vectors[vector_idx]
+            } else {
+                while vector {
+                    dest_ci = ci + vector
+                    if dest_ci & $88 == 0 {
+                        piece2 = board.cells[dest_ci]
+                        if not piece2 or (piece^piece2) & $80 {
+                            possible_moves[moves_idx] = dest_ci
+                            moves_idx++
+                        }
+                    }
+                    vector_idx++
+                    vector = vectors[vector_idx]
+                }
             }
         }
 

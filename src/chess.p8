@@ -11,7 +11,6 @@
 ; https://home.hccnet.nl/h.g.muller/board.html
 ;    makes the move generation look easy with the move_offsets lists.
 
-; TODO pawn special moves: only straight 1 or 2 squares if initial move, unless it can take a piece
 ; TODO castling
 ; TODO pawn promotion
 ; TODO check, checkmate, stalemate (partly?)
