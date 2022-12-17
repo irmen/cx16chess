@@ -11,13 +11,13 @@
 ; https://home.hccnet.nl/h.g.muller/board.html
 ;    makes the move generation look easy with the move_offsets lists.
 
-; TODO castling
-; TODO pawn promotion
-; TODO check, checkmate, stalemate (partly?)
+; TODO king in check
+; TODO castling (see board.castling_possible)
 ; TODO resignation, restart
+; TODO pawn promotion
+; TODO checkmate, stalemate (partly?)
 ; TODO choose side that you want to play (currently always white)
 ; TODO en-passant capturing of pawn
-; TODO fix vga/composite screen mode (see gfx2)
 
 main {
     ubyte player        ; 1=white, 2=black
@@ -28,7 +28,7 @@ main {
     sub start() {
         cx16.mouse_config2(1)   ; enable mouse cursor (sprite 0)
         ; show_titlescreen_lores()
-        show_titlescreen_hires()
+        ; show_titlescreen_hires()
 
         cx16.mouse_config2(1)   ; enable mouse cursor (sprite 0)
         txt.clear_screen()
@@ -122,8 +122,10 @@ main {
             ; nothing
         }
 
+        cx16.r15L = cx16.VERA_DC_VIDEO & %00000111 ; retain chroma + output mode
         cx16.VERA_CTRL = %10000000  ; reset vera
         c64.CINT()
+        cx16.VERA_DC_VIDEO = (cx16.VERA_DC_VIDEO & %11111000) | cx16.r15L
         txt.fix_autostart_square()
         txt.lowercase()
     }
@@ -323,6 +325,8 @@ main {
                 }
                 sprites.sprites_cell[sprite_captured] = $ff
             }
+            from_cell = $ff
+            to_cell = $ff
         }
 
         sub log_move() {
@@ -352,6 +356,14 @@ main {
         }
 
         sub move_piece() {
+            when from_cell {
+                $00 -> board.black_rook_a_moved = true
+                $07 -> board.black_rook_h_moved = true
+                $70 -> board.white_rook_a_moved = true
+                $77 -> board.white_rook_h_moved = true
+                $04 -> board.black_king_moved = true
+                $7f -> board.white_king_moved = true
+            }
             sprites.move_between_cells(from_cell, to_cell)
             board.cells[to_cell] = board.cells[from_cell]
             board.cells[from_cell] = 0

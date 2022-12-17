@@ -21,6 +21,14 @@ board {
     const ubyte board_border_color = 12
     const ubyte labels_color = 3
 
+    ; for castling:
+    bool black_king_moved
+    bool black_rook_a_moved
+    bool black_rook_h_moved
+    bool white_king_moved
+    bool white_rook_a_moved
+    bool white_rook_h_moved
+
     sub init() {
         print_board_bg()
 
@@ -30,6 +38,13 @@ board {
         setrow($10, "PPPPPPPP")
         setrow($60, "pppppppp")
         setrow($70, "rnbqkbnr")
+
+        black_king_moved = false
+        black_rook_a_moved = false
+        black_rook_h_moved = false
+        white_king_moved = false
+        white_rook_a_moved = false
+        white_rook_h_moved = false
 
         sub setrow(ubyte row, str pieces) {
             ubyte ix
@@ -235,4 +250,54 @@ board {
         possible_moves[moves_idx] = $ff
         return moves_idx!=0
     }
+
+    sub castling_possible(ubyte kingcell) -> ubyte {
+        ; returns 0 for not possible, 1 for short, 2 for long side possible, 3 for both sides possible.
+        ; castling is allowed if:
+        ;    The king and (castling) rook have not yet moved in the game
+        ;    The king is not currently in check
+        ;    No square the king would castle through is under attack
+        ;    The squares between king and rook are unoccupied
+        ubyte possible
+        when kingcell {
+            $04 -> {
+                ; black king
+                if black_king_moved
+                    return 0
+                possible = %11
+                if black_rook_a_moved {
+                    ; TODO check squares not under attack and not occupied
+                    possible &= %01
+                }
+                if black_rook_h_moved {
+                    ; TODO check squares not under attack and not occupied
+                    possible &= %10
+                }
+                if possible {
+                    ; TODO check black king check
+                }
+                return possible
+            }
+            $74 -> {
+                ; white king
+                if white_king_moved
+                    return 0
+                possible = %11
+                if white_rook_a_moved {
+                    ; TODO check squares not under attack and not occupied
+                    possible &= %01
+                }
+                if white_rook_h_moved {
+                    ; TODO check squares not under attack and not occupied
+                    possible &= %10
+                }
+                if possible {
+                    ; TODO check black king check
+                }
+                return possible
+            }
+            else -> return 0
+        }
+    }
+
 }
