@@ -24,6 +24,7 @@ main {
     ubyte player        ; 1=white, 2=black
     ubyte turn
     bool versus_human
+    ubyte winner
 
     sub start() {
         ; show_titlescreen_lores()
@@ -43,6 +44,15 @@ main {
         }
     }
 
+    sub wait_mousebutton() {
+        while not cx16.mouse_pos() {
+            ; nothing
+        }
+        while cx16.mouse_pos() {
+            ; nothing
+        }
+    }
+
     sub show_titlescreen_lores() {
         void cx16.screen_mode(128, false)   ; 256 colors lores
         if not cx16diskio.vload_raw("titlescreen.pal", 8, 1, $fa00)
@@ -58,12 +68,7 @@ main {
         txt.print("Click any ")
         txt.print("mouse button")
         cx16.mouse_config2(1)   ; enable mouse cursor (sprite 0)
-        while not cx16.mouse_pos() {
-            ; nothing
-        }
-        while cx16.mouse_pos() {
-            ; nothing
-        }
+        wait_mousebutton()
         void cx16.screen_mode(0, false)
     }
 
@@ -94,14 +99,7 @@ main {
            or not cx16diskio.vload_raw("titlescreen640.bin", 8, 0, $0000) {
             sys.reset_system()
         }
-
-        while not cx16.mouse_pos() {
-            ; nothing
-        }
-        while cx16.mouse_pos() {
-            ; nothing
-        }
-
+        wait_mousebutton()
         cx16.r15L = cx16.VERA_DC_VIDEO & %00000111 ; retain chroma + output mode
         cx16.VERA_CTRL = %10000000  ; reset vera
         c64.CINT()
@@ -163,6 +161,9 @@ main {
                 }
             }
         }
+        while cx16.mouse_pos() {
+            ; wait until mouse button release
+        }
     }
 
     sub load_resources() {
@@ -191,6 +192,7 @@ main {
         txt.print("F3 = resign/restart")
         player = 1      ; white player always starts, for now.
         turn = 0
+        winner = 0
     }
 
     sub gameloop() {
@@ -223,16 +225,17 @@ main {
                     txt.color(7)
                     txt.print("I give up! You win! Press any ")
                     txt.print("mouse button")
-                    while not cx16.mouse_pos() {
-                        ; nothing
-                    }
-                    while cx16.mouse_pos() {
-                        ; nothing
-                    }
+                    wait_mousebutton()
                 }
             }
+            if winner
+                continue=false
         }
         chessclock.stop()
+        if winner {
+            show_winner(winner)
+        }
+
 
         sub human_move() -> bool {
             when c64.GETIN() {
@@ -315,14 +318,19 @@ main {
             }
             from_cell = $ff
             to_cell = $ff
-            show_player()
+
+            when piece_captured {
+                'k' -> winner=2
+                'K' -> winner=1
+                else -> show_player()
+            }
         }
 
         sub log_move() {
             ubyte move = turn / 2
             txt.color(14)
             if turn & 1 {
-                txt.plot(72, move+board.board_row+1)
+                txt.plot(73, move+board.board_row+1)
             } else {
                 txt.plot(62, move+board.board_row+1)
                 txt.print_ub(move+1)
@@ -383,6 +391,30 @@ main {
                     }
                 }
             }
+        }
+
+        sub show_winner(ubyte who) {
+            txt.plot(30,54)
+            txt.color(7)
+            if versus_human {
+                when who {
+                    1 -> txt.print("WHITE")
+                    2 -> txt.print("BLACK")
+                }
+                txt.print(" won! Congratulations!")
+            } else {
+                when who {
+                    1 -> {
+                        txt.print("You")
+                        txt.print(" won! Congratulations!")
+                    }
+                    2 -> txt.print("I won. Incredible.")
+                }
+            }
+            txt.plot(30,55)
+            txt.print("Press any ")
+            txt.print("mouse button")
+            wait_mousebutton()
         }
     }
 }

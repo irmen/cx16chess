@@ -139,38 +139,21 @@ board {
         return ((ci & $f0)>>4) * board.square_size + board.board_row
     }
 
-    sub move_vectors(ubyte cell) -> uword {
-        ; this can be slightly faster when using a lookup table, but that probably requires
-        ; identifying the pieces by an index number instead of a legible letter.
-        when(board.cells[cell]) {
-            'P' -> {    ; black pawn
-                if cell & $f0 == $10
-                    return [$0f,$10,$11,$20,0]  ; still at initial row so allow 2 steps forward as well
-                return [$0f,$10,$11,0]
-            }
-            'p' -> {    ; white pawn
-                if cell & $f0 == $60
-                    return [$f1,$f0,$ef,$e0,0]  ; still at initial row so allow 2 steps forward as well
-                return [$f1,$f0,$ef,0]
-            }
-            'R','r' -> return [$01,$10,$ff,$f0,0]   ; rook
-            'N','n' -> return [$0e,$f2,$12,$ee,$1f,$e1,$21,$df,0]   ; knight
-            'B','b' -> return [$11,$0f,$ef,$f1,0]   ; bishop
-            'Q','q','K','k' -> return [$01,$10,$ff,$f0,$0f,$f1,$11,$ef,0]   ; queen, king
-        }
-        return 0
-    }
-
     ubyte[32] @requirezp possible_moves
+    ubyte possible_captures
 
-    sub build_possible_moves(ubyte ci) -> bool {
+    sub build_possible_moves(ubyte ci) -> ubyte {
         ; makes the array 'possible_moves' as a $ff-terminated array of cells that the piece on cell 'ci' could move to
+        ; returns the number of moves in the array.
+        ; also sets 'possible_captures' to the number of moves that could capture an opponent's piece.
+
+        possible_captures = 0
         possible_moves[0] = $ff
         ubyte piece = board.cells[ci]
         if not piece
-            return false
+            return 0
 
-        uword @requirezp vectors = board.move_vectors(ci)
+        uword @requirezp vectors = move_vectors(ci)
         ubyte @requirezp vector_idx = 0
         ubyte @requirezp moves_idx = 0
         ubyte vector = vectors[0]
@@ -190,6 +173,7 @@ board {
                         if (piece^piece2) & $80 {    ; check for opponent's piece
                             possible_moves[moves_idx] = dest_ci
                             moves_idx++
+                            possible_captures++
                         }
                         break
                     }
@@ -214,6 +198,7 @@ board {
                         piece2 = board.cells[dest_ci]
                         if diagonally and piece2 and (piece^piece2) & $80 {
                             move_ok = true
+                            possible_captures++
                         } else if not diagonally and not piece2 {
                             ; check if not obstructed if moving 2 squares
                             if ci & $f0 == $60
@@ -239,6 +224,7 @@ board {
                         if not piece2 or (piece^piece2) & $80 {
                             possible_moves[moves_idx] = dest_ci
                             moves_idx++
+                            possible_captures++
                         }
                     }
                     vector_idx++
@@ -248,7 +234,29 @@ board {
         }
 
         possible_moves[moves_idx] = $ff
-        return moves_idx!=0
+        return moves_idx
+
+        sub move_vectors(ubyte cell) -> uword {
+            ; this can be slightly faster when using a lookup table, but that probably requires
+            ; identifying the pieces by an index number instead of a legible letter.
+            when(board.cells[cell]) {
+                'P' -> {    ; black pawn
+                    if cell & $f0 == $10
+                        return [$0f,$10,$11,$20,0]  ; still at initial row so allow 2 steps forward as well
+                    return [$0f,$10,$11,0]
+                }
+                'p' -> {    ; white pawn
+                    if cell & $f0 == $60
+                        return [$f1,$f0,$ef,$e0,0]  ; still at initial row so allow 2 steps forward as well
+                    return [$f1,$f0,$ef,0]
+                }
+                'R','r' -> return [$01,$10,$ff,$f0,0]   ; rook
+                'N','n' -> return [$0e,$f2,$12,$ee,$1f,$e1,$21,$df,0]   ; knight
+                'B','b' -> return [$11,$0f,$ef,$f1,0]   ; bishop
+                'Q','q','K','k' -> return [$01,$10,$ff,$f0,$0f,$f1,$11,$ef,0]   ; queen, king
+            }
+            return 0
+        }
     }
 
     ; TODO finish this:
