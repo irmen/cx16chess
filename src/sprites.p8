@@ -117,6 +117,13 @@ sprites {
         cx16.vpoke(1, sprite_data_ptr+1, msb(bitmap))            ; mode bit (16 colors) and sprite dataptr bits 13-16
     }
 
+    sub hide_all() {
+        ubyte sprite_num
+        for sprite_num in 1 to 34 {
+            move(sprite_num, -32, -32)
+        }
+    }
+
     ; sprite images in the bitmap are in this order:
     ;   0 = R (black rook)
     ;   1 = B (black bishop)

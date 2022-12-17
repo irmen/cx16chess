@@ -4,6 +4,7 @@
 %import math
 %import board
 %import sprites
+%import computerplayer
 %option no_sysinit
 
 ; references for tiny chess:
@@ -11,9 +12,9 @@
 ; https://home.hccnet.nl/h.g.muller/board.html
 ;    makes the move generation look easy with the move_offsets lists.
 
-; TODO king in check
+; TODO update clock while computer is thinking (IRQ driven)
 ; TODO castling (see board.castling_possible)
-; TODO resignation, restart
+; TODO king in check
 ; TODO pawn promotion
 ; TODO checkmate, stalemate (partly?)
 ; TODO choose side that you want to play (currently always white)
@@ -24,20 +25,23 @@ main {
     ubyte turn
     uword black_time
     uword white_time
+    bool versus_human
 
     sub start() {
-        cx16.mouse_config2(1)   ; enable mouse cursor (sprite 0)
         ; show_titlescreen_lores()
-        ; show_titlescreen_hires()
-
-        cx16.mouse_config2(1)   ; enable mouse cursor (sprite 0)
-        txt.clear_screen()
+        show_titlescreen_hires()
+        txt.fix_autostart_square()
         txt.lowercase()
         palette.set_c64pepto()
-        ; TODO no longer needed if using title screen pic:  show_instructions()
         load_resources()
-        new_game()
-        gameloop()
+        cx16.mouse_config2(1)   ; enable mouse cursor (sprite 0)
+
+        repeat {
+            sprites.hide_all()
+            show_instructions()
+            new_game()
+            gameloop()
+        }
     }
 
     sub show_titlescreen_lores() {
@@ -50,36 +54,11 @@ main {
             sys.exit(1)
         }
         txt.lowercase()
-        txt.color2(15,12)
-        txt.plot(10, 2)
-        txt.print("The game of Chess")
-        txt.color(14)
-        txt.plot(2, 6)
-        txt.print("Pieces are moved using the mouse.")
-        txt.plot(2, 7)
-        txt.print("Mouse button 1 selects a piece,")
-        txt.plot(2, 8)
-        txt.print("then dragging to the desired")
-        txt.plot(2, 9)
-        txt.print("destination square prepares a move.")
-        txt.plot(2, 13)
-        txt.print("You can freely change your mind,")
-        txt.plot(2, 14)
-        txt.print("until you confirm the move")
-        txt.plot(2, 15)
-        txt.print("by pressing mouse button 2.")
-        txt.plot(2, 19)
-        txt.print("At this time, you'll always play")
-        txt.plot(2, 20)
-        txt.print("white and the opponent plays black.")
-        txt.plot(2, 24)
-        txt.color2(13,5)
-        txt.print("Press any mouse button to start.")
-        txt.color2(15,0)
-        txt.plot(0, 28)
-        txt.print("A game by DesertFish")
-        txt.plot(0, 29)
-        txt.print("written in Prog8")
+        txt.color2(1,15)
+        txt.plot(2,27)
+        txt.print("Click any ")
+        txt.print("mouse button")
+        cx16.mouse_config2(1)   ; enable mouse cursor (sprite 0)
         while not cx16.mouse_pos() {
             ; nothing
         }
@@ -91,6 +70,7 @@ main {
 
     sub show_titlescreen_hires() {
         ; 640x400 16 colors
+        cx16.mouse_config2(1)   ; enable mouse cursor (sprite 0)
         cx16.VERA_CTRL=0
         cx16.VERA_ADDR_L=0
         cx16.VERA_ADDR_M=0
@@ -115,6 +95,7 @@ main {
            or not cx16diskio.vload_raw("titlescreen640.bin", 8, 0, $0000) {
             sys.reset_system()
         }
+
         while not cx16.mouse_pos() {
             ; nothing
         }
@@ -126,8 +107,6 @@ main {
         cx16.VERA_CTRL = %10000000  ; reset vera
         c64.CINT()
         cx16.VERA_DC_VIDEO = (cx16.VERA_DC_VIDEO & %11111000) | cx16.r15L
-        txt.fix_autostart_square()
-        txt.lowercase()
     }
 
     sub show_instructions() {
@@ -145,29 +124,49 @@ main {
         txt.plot(10, 15)
         txt.print("You can freely change your mind,")
         txt.plot(12, 16)
-        txt.print("until you confirm the move by pressing mouse button 2.")
+        txt.print("until you confirm the move by pressing ")
+        txt.print("mouse button")
+        txt.print(" 2.")
         txt.plot(10, 20)
         txt.print("At this time, you'll always play with \x05white\x9b,")
         txt.plot(12, 21)
         txt.print("and the computer will play \x90black.")
-        txt.plot(10, 25)
+
+        txt.plot(10, 26)
         txt.color(14)
-        txt.print("Press any mouse button to continue.")
-        txt.plot(58, 57)
+        txt.print("Press:")
+        txt.plot(10, 28)
+        txt.print("mouse button")
+        txt.print(" 1 ")
+        txt.print("for game vs. ")
+        txt.print("computer")
+        txt.plot(10, 30)
+        txt.print("mouse button")
+        txt.print(" 2 ")
+        txt.print("for game vs. ")
+        txt.print("human")
+
+        txt.plot(57, 56)
         txt.color(10)
         txt.print("A game by DesertFish")
-        txt.plot(62, 58)
+        txt.plot(61, 57)
         txt.print("written in Prog8")
-        while not cx16.mouse_pos() {
-            ; nothing
-        }
-        while cx16.mouse_pos() {
-            ; nothing
+
+        repeat {
+            when cx16.mouse_pos() {
+                1 -> {
+                    versus_human = false
+                    break
+                }
+                2 -> {
+                    versus_human = true
+                    break
+                }
+            }
         }
     }
 
     sub load_resources() {
-        txt.print("loading...")
         if not cx16diskio.vload_raw("chesspieces.pal", 8, 1, $fa00 + sprites.palette_offset_color*2)
            or not cx16diskio.vload_raw("chesspieces.bin", 8, 0, $4000) {
             txt.print("load error\n")
@@ -187,6 +186,9 @@ main {
         txt.clear_screen()
         board.init()
         sprites.init()
+        txt.plot(30,56)
+        txt.color(12)
+        txt.print("F3 = resign/restart")
         player = 1      ; white player always starts, for now.
         turn = 0
         black_time = 0
@@ -202,10 +204,43 @@ main {
         show_player()
         c64.SETTIM(0,0,0)
 
-        repeat {
+        bool continue = true
+        while continue {
             sys.waitvsync()
             flash_crosshairs()
             update_clocks()
+            if player == 1
+                continue = human_move()
+            else if versus_human
+                continue = human_move()
+            else {
+                uword computer_move = computerplayer.prepare_move()
+                if computer_move {
+                    from_cell = lsb(computer_move)
+                    to_cell = msb(computer_move)
+                    confirm_move()
+                } else {
+                    continue = false
+                    txt.plot(25,54)
+                    txt.color(7)
+                    txt.print("I give up! You win! Press any ")
+                    txt.print("mouse button")
+                    while not cx16.mouse_pos() {
+                        ; nothing
+                    }
+                    while cx16.mouse_pos() {
+                        ; nothing
+                    }
+                }
+            }
+        }
+
+        sub human_move() -> bool {
+            when c64.GETIN() {
+                134 -> {
+                    return false
+                }
+            }
             ubyte buttons = cx16.mouse_pos()  ; also puts mouse pos in r0s and r1s
             ci = board.cell_for_screen(cx16.r0s, cx16.r1s)
             if ci & $88 == 0 {
@@ -216,6 +251,7 @@ main {
                 else
                     button_pressed = false
             }
+            return true
         }
 
         sub update_clocks() {
@@ -234,11 +270,11 @@ main {
             sub print_time(ubyte whose, uword seconds) {
                 when whose {
                     1 -> {
-                        txt.plot(2, 57)
+                        txt.plot(5, 56)
                         txt.print("white ")
                     }
                     2 -> {
-                        txt.plot(2, 54)
+                        txt.plot(5, 54)
                         txt.print("black ")
                     }
                 }
@@ -250,16 +286,16 @@ main {
                 txt.print_ub0(lsb(minutes))
                 txt.print_ub0(lsb(seconds))
                 when whose {
-                    1 -> fixup(57)
+                    1 -> fixup(56)
                     2 -> fixup(54)
                 }
 
                 sub fixup(ubyte row) {
-                    txt.plot(8, row)
-                    txt.chrout(' ')
                     txt.plot(11, row)
-                    txt.chrout(':')
+                    txt.chrout(' ')
                     txt.plot(14, row)
+                    txt.chrout(':')
+                    txt.plot(17, row)
                     txt.chrout(':')
                 }
             }
@@ -327,6 +363,7 @@ main {
             }
             from_cell = $ff
             to_cell = $ff
+            show_player()
         }
 
         sub log_move() {
@@ -352,7 +389,6 @@ main {
             if player==3
                 player=1
             c64.SETTIM(0,0,0)
-            show_player()
         }
 
         sub move_piece() {
@@ -370,21 +406,31 @@ main {
         }
 
         sub show_player() {
-            txt.plot(30,55)
+            txt.plot(30,54)
             txt.color(15)
-            txt.print("It is ")
-            when player {
-                1 -> {
-                    txt.color(1)
-                    txt.print("white")
+            if versus_human {
+                txt.print("It is ")
+                when player {
+                    1 -> {
+                        txt.color(1)
+                        txt.print("white")
+                    }
+                    2 -> {
+                        txt.color(0)
+                        txt.print("black")
+                    }
                 }
-                2 -> {
-                    txt.color(0)
-                    txt.print("black")
+                txt.color(15)
+                txt.print("'s turn.")
+            } else {
+                when player {
+                    1 -> txt.print("It is your turn, \x05white.")
+                    2 -> {
+                        txt.color(7)
+                        txt.print("I am thinking..........")
+                    }
                 }
             }
-            txt.color(15)
-            txt.print("'s turn.")
         }
     }
 
