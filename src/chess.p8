@@ -5,6 +5,7 @@
 %import board
 %import sprites
 %import computerplayer
+%import chessclock
 %option no_sysinit
 
 ; references for tiny chess:
@@ -12,7 +13,6 @@
 ; https://home.hccnet.nl/h.g.muller/board.html
 ;    makes the move generation look easy with the move_offsets lists.
 
-; TODO update clock while computer is thinking (IRQ driven)
 ; TODO castling (see board.castling_possible)
 ; TODO king in check
 ; TODO pawn promotion
@@ -23,8 +23,6 @@
 main {
     ubyte player        ; 1=white, 2=black
     ubyte turn
-    uword black_time
-    uword white_time
     bool versus_human
 
     sub start() {
@@ -34,6 +32,7 @@ main {
         txt.lowercase()
         palette.set_c64pepto()
         load_resources()
+        chessclock.init()
         cx16.mouse_config2(1)   ; enable mouse cursor (sprite 0)
 
         repeat {
@@ -186,13 +185,12 @@ main {
         txt.clear_screen()
         board.init()
         sprites.init()
+        chessclock.reset()
         txt.plot(30,56)
         txt.color(12)
         txt.print("F3 = resign/restart")
         player = 1      ; white player always starts, for now.
         turn = 0
-        black_time = 0
-        white_time = 0
     }
 
     sub gameloop() {
@@ -202,13 +200,12 @@ main {
         ubyte ci
 
         show_player()
-        c64.SETTIM(0,0,0)
+        chessclock.reset()
+        chessclock.switch(player)
 
         bool continue = true
         while continue {
             sys.waitvsync()
-            flash_crosshairs()
-            update_clocks()
             if player == 1
                 continue = human_move()
             else if versus_human
@@ -221,6 +218,7 @@ main {
                     confirm_move()
                 } else {
                     continue = false
+                    chessclock.stop()
                     txt.plot(25,54)
                     txt.color(7)
                     txt.print("I give up! You win! Press any ")
@@ -234,6 +232,7 @@ main {
                 }
             }
         }
+        chessclock.stop()
 
         sub human_move() -> bool {
             when c64.GETIN() {
@@ -252,53 +251,6 @@ main {
                     button_pressed = false
             }
             return true
-        }
-
-        sub update_clocks() {
-            txt.color(12)
-            if c64.RDTIM16()>59 {
-                c64.SETTIM(0,0,0)
-                when player {
-                    1 -> white_time++
-                    2 -> black_time++
-                }
-            }
-
-            print_time(1, white_time)
-            print_time(2, black_time)
-
-            sub print_time(ubyte whose, uword seconds) {
-                when whose {
-                    1 -> {
-                        txt.plot(5, 56)
-                        txt.print("white ")
-                    }
-                    2 -> {
-                        txt.plot(5, 54)
-                        txt.print("black ")
-                    }
-                }
-                uword hours = seconds/(60*60)
-                seconds -= hours*60*60
-                uword minutes = seconds/60
-                seconds -= minutes*60
-                txt.print_ub0(lsb(hours))
-                txt.print_ub0(lsb(minutes))
-                txt.print_ub0(lsb(seconds))
-                when whose {
-                    1 -> fixup(56)
-                    2 -> fixup(54)
-                }
-
-                sub fixup(ubyte row) {
-                    txt.plot(11, row)
-                    txt.chrout(' ')
-                    txt.plot(14, row)
-                    txt.chrout(':')
-                    txt.plot(17, row)
-                    txt.chrout(':')
-                }
-            }
         }
 
         sub prepare_move() {
@@ -388,7 +340,7 @@ main {
             player++
             if player==3
                 player=1
-            c64.SETTIM(0,0,0)
+            chessclock.switch(player)
         }
 
         sub move_piece() {
@@ -432,22 +384,5 @@ main {
                 }
             }
         }
-    }
-
-    sub flash_crosshairs() {
-        ; rotate the 16 colors (except the 1st) in the crosshair palette
-        uword palette_src = $fa00 + sprites.palette_offset_color_crosshair*2
-        uword palette_dest = palette_src
-        palette_src += 2
-        ubyte first_lo = cx16.vpeek(1, palette_dest)
-        ubyte first_hi = cx16.vpeek(1, palette_dest+1)
-        repeat 30 {
-            cx16.r2L = cx16.vpeek(1, palette_src)
-            cx16.vpoke(1, palette_dest, cx16.r2L)
-            palette_src++
-            palette_dest++
-        }
-        cx16.vpoke(1, palette_dest, first_lo)
-        cx16.vpoke(1, palette_dest+1, first_hi)
     }
 }
