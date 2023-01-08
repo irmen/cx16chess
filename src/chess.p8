@@ -13,6 +13,7 @@
 ; https://home.hccnet.nl/h.g.muller/board.html
 ;    makes the move generation look easy with the move_offsets lists.
 
+; TODO fix bug: sometimes at game start, pawn sprite at C2 or D2 doesn't appear !?
 ; TODO castling (see board.castling_possible)
 ; TODO king in check
 ; TODO pawn promotion

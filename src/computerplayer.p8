@@ -10,6 +10,8 @@ computerplayer {
         ; - try 50000 random moves to see if one can capture an opponent's piece. If so, take this move.
         ; - if not, repeat this and take any random valid move.
 
+        ; TODO assign value to pieces and capture piece with highest value first
+
         sys.wait(120)
 
         ubyte num_moves
