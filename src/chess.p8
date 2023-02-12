@@ -30,7 +30,6 @@ main {
     sub start() {
         ; show_titlescreen_lores()
         show_titlescreen_hires()
-        txt.fix_autostart_square()
         txt.lowercase()
         palette.set_c64pepto()
         load_resources()
