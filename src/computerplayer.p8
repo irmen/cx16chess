@@ -20,7 +20,7 @@ computerplayer {
         ubyte cell_with_moves = $ff
 
         repeat 50000 {
-            ci = math.rnd()
+            ci = math.rnd() & $77
             if board.cells[ci] & $80 {
                 num_moves = board.build_possible_moves(ci)
                 if num_moves>0
