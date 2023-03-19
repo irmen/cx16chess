@@ -101,7 +101,6 @@ main {
         }
         wait_mousebutton()
         cx16.r15L = cx16.VERA_DC_VIDEO & %00000111 ; retain chroma + output mode
-        cx16.VERA_CTRL = %10000000  ; reset vera
         c64.CINT()
         cx16.VERA_DC_VIDEO = (cx16.VERA_DC_VIDEO & %11111000) | cx16.r15L
     }
