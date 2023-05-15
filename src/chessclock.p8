@@ -11,7 +11,7 @@ chessclock {
 
     sub init() {
         reset()
-        cx16.set_irq(clock_irq, true)
+        sys.set_irq(clock_irq, true)
     }
 
     sub reset() {

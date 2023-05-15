@@ -1,6 +1,6 @@
 %import textio
 %import palette
-%import cx16diskio
+%import diskio
 %import math
 %import board
 %import sprites
@@ -55,8 +55,8 @@ main {
 
     sub show_titlescreen_lores() {
         void cx16.screen_mode(128, false)   ; 256 colors lores
-        if not cx16diskio.vload_raw("titlescreen.pal", 8, 1, $fa00)
-           or not cx16diskio.vload_raw("titlescreen.bin", 8, 0, $0000) {
+        if not diskio.vload_raw("titlescreen.pal", 1, $fa00)
+           or not diskio.vload_raw("titlescreen.bin", 0, $0000) {
             void cx16.screen_mode(0, false)
             txt.print("load error\n")
             sys.wait(120)
@@ -95,13 +95,13 @@ main {
         cx16.vpoke(1, sprites.VERA_SPRITEREGS, $a0)
         cx16.vpoke(1, sprites.VERA_SPRITEREGS+1, $0f)
 
-        if not cx16diskio.vload_raw("titlescreen640.pal", 8, 1, $fa00)
-           or not cx16diskio.vload_raw("titlescreen640.bin", 8, 0, $0000) {
+        if not diskio.vload_raw("titlescreen640.pal", 1, $fa00)
+           or not diskio.vload_raw("titlescreen640.bin", 0, $0000) {
             sys.reset_system()
         }
         wait_mousebutton()
         cx16.r15L = cx16.VERA_DC_VIDEO & %00000111 ; retain chroma + output mode
-        c64.CINT()
+        cbm.CINT()
         cx16.VERA_DC_VIDEO = (cx16.VERA_DC_VIDEO & %11111000) | cx16.r15L
     }
 
@@ -166,15 +166,15 @@ main {
     }
 
     sub load_resources() {
-        if not cx16diskio.vload_raw("chesspieces.pal", 8, 1, $fa00 + sprites.palette_offset_color*2)
-           or not cx16diskio.vload_raw("chesspieces.bin", 8, 0, $4000) {
+        if not diskio.vload_raw("chesspieces.pal", 1, $fa00 + sprites.palette_offset_color*2)
+           or not diskio.vload_raw("chesspieces.bin", 0, $4000) {
             txt.print("load error\n")
             sys.wait(120)
             sys.exit(1)
         }
 
-        if not cx16diskio.vload_raw("crosshairs.pal", 8, 1, $fa00 + sprites.palette_offset_color_crosshair*2)
-           or not cx16diskio.vload_raw("crosshairs.bin", 8, 0, $4000 + 12*32*32/2) {
+        if not diskio.vload_raw("crosshairs.pal", 1, $fa00 + sprites.palette_offset_color_crosshair*2)
+           or not diskio.vload_raw("crosshairs.bin", 0, $4000 + 12*32*32/2) {
             txt.print("load error\n")
             sys.wait(120)
             sys.exit(1)
@@ -237,7 +237,7 @@ main {
 
 
         sub human_move() -> bool {
-            when c64.GETIN() {
+            when cbm.GETIN() {
                 134 -> {
                     return false
                 }
