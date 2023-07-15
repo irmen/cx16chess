@@ -9,8 +9,8 @@ sprites {
     const uword sprite_data_base = $04000 >> 5      ; pre-shifted for vera
     const uword VERA_SPRITEREGS = $fc00
     ; sprite 0 = the mouse pointer
-    word[35] sprites_x
-    word[35] sprites_y
+    word[35] @split sprites_x
+    word[35] @split sprites_y
     ubyte[35] sprites_cell
 
     sub init() {

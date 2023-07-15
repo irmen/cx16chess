@@ -121,7 +121,7 @@ board {
         sx /= 8*board.square_size
         sy -= board.board_row * 8
         sy /= 8*board.square_size
-        return (sy << 4) | sx
+        return lsb(sy << 4) | lsb(sx)
     }
 
     sub notation_for_cell(ubyte ci) -> str {
