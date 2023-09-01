@@ -3,7 +3,7 @@
 %import diskio
 %import math
 %import board
-%import sprites
+%import pieces
 %import computerplayer
 %import chessclock
 %option no_sysinit
@@ -37,7 +37,7 @@ main {
         cx16.mouse_config2(1)   ; enable mouse cursor (sprite 0)
 
         repeat {
-            sprites.hide_all()
+            pieces.hide_all()
             show_instructions()
             new_game()
             gameloop()
@@ -92,8 +92,7 @@ main {
         cx16.VERA_L1_TILEBASE = %00000001   ; hires
 
         ; use blank sprite bitmap as pointer to make it invisible
-        cx16.vpoke(1, sprites.VERA_SPRITEREGS, $a0)
-        cx16.vpoke(1, sprites.VERA_SPRITEREGS+1, $0f)
+        sprites.data(0, 1, $f400)
 
         if not diskio.vload_raw("titlescreen640.pal", 1, $fa00)
            or not diskio.vload_raw("titlescreen640.bin", 0, $0000) {
@@ -166,14 +165,14 @@ main {
     }
 
     sub load_resources() {
-        if not diskio.vload_raw("chesspieces.pal", 1, $fa00 + sprites.palette_offset_color*2)
+        if not diskio.vload_raw("chesspieces.pal", 1, $fa00 + pieces.palette_offset_color*2)
            or not diskio.vload_raw("chesspieces.bin", 0, $4000) {
             txt.print("load error\n")
             sys.wait(120)
             sys.exit(1)
         }
 
-        if not diskio.vload_raw("crosshairs.pal", 1, $fa00 + sprites.palette_offset_color_crosshair*2)
+        if not diskio.vload_raw("crosshairs.pal", 1, $fa00 + pieces.palette_offset_color_crosshair*2)
            or not diskio.vload_raw("crosshairs.bin", 0, $4000 + 12*32*32/2) {
             txt.print("load error\n")
             sys.wait(120)
@@ -184,7 +183,7 @@ main {
     sub new_game() {
         txt.clear_screen()
         board.init()
-        sprites.init()
+        pieces.init()
         chessclock.reset()
         txt.plot(30,56)
         txt.color(12)
@@ -260,18 +259,18 @@ main {
                 ; dragging - update target square
                 to_cell = $ff
                 if ci!=from_cell and from_cell & $88 == 0 {
-                    sprites.move(sprites.sprite_num_crosshair2, sprites.sx_for_cell(ci), sprites.sy_for_cell(ci))
+                    sprites.pos(pieces.sprite_num_crosshair2, pieces.sx_for_cell(ci), pieces.sy_for_cell(ci))
                     if is_valid_move(from_cell, ci) {
                         to_cell = ci
-                        sprites.set_valid_crosshair2()
+                        pieces.set_valid_crosshair2()
                     } else {
-                        sprites.set_invalid_crosshair2()
+                        pieces.set_invalid_crosshair2()
                     }
                 }
             } else {
                 ; first click - update start square
-                sprites.move(sprites.sprite_num_crosshair1, sprites.sx_for_cell(ci), sprites.sy_for_cell(ci))
-                sprites.move(sprites.sprite_num_crosshair2, -32, -32)   ; offscreen
+                sprites.pos(pieces.sprite_num_crosshair1, pieces.sx_for_cell(ci), pieces.sy_for_cell(ci))
+                sprites.hide(pieces.sprite_num_crosshair2)
                 to_cell = $ff
                 from_cell = $ff
                 ubyte piece = board.cells[ci]
@@ -302,18 +301,18 @@ main {
             if from_cell & $88 or to_cell & $88
                 return      ; move is invalid
             log_move()
-            sprites.move(sprites.sprite_num_crosshair1, -32, -32)   ; offscreen
-            sprites.move(sprites.sprite_num_crosshair2, -32, -32)   ; offscreen
+            sprites.hide(pieces.sprite_num_crosshair1)
+            sprites.hide(pieces.sprite_num_crosshair2)
             ubyte piece_captured = board.cells[to_cell]
-            ubyte sprite_captured = sprites.sprite_in_cell(to_cell)
+            ubyte sprite_captured = pieces.sprite_in_cell(to_cell)
             move_piece()
             if piece_captured {
                 if piece_captured & 128 {
-                    sprites.move_to(sprite_captured, 32, (sprite_captured & 15) as word *16+50, 32)   ; black piece captured
+                    pieces.move_to(sprite_captured, 32, (sprite_captured & 15) as word *16+50, 32)   ; black piece captured
                 } else {
-                    sprites.move_to(sprite_captured, 70, (sprite_captured & 15) as word *16+50, 32)   ; white piece captured
+                    pieces.move_to(sprite_captured, 70, (sprite_captured & 15) as word *16+50, 32)   ; white piece captured
                 }
-                sprites.sprites_cell[sprite_captured] = $ff
+                pieces.sprites_cell[sprite_captured] = $ff
             }
             from_cell = $ff
             to_cell = $ff
@@ -359,7 +358,7 @@ main {
                 $04 -> board.black_king_moved = true
                 $7f -> board.white_king_moved = true
             }
-            sprites.move_between_cells(from_cell, to_cell)
+            pieces.move_between_cells(from_cell, to_cell)
             board.cells[to_cell] = board.cells[from_cell]
             board.cells[from_cell] = 0
         }

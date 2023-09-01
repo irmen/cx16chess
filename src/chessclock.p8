@@ -84,7 +84,7 @@ chessclock {
 
     sub flash_crosshairs() {
         ; rotate the 16 colors (except the 1st) in the crosshair palette
-        uword palette_src = $fa00 + sprites.palette_offset_color_crosshair*2
+        uword palette_src = $fa00 + pieces.palette_offset_color_crosshair*2
         uword palette_dest = palette_src
         palette_src += 2
         ubyte first_lo = cx16.vpeek(1, palette_dest)
