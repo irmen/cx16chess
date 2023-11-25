@@ -11,7 +11,7 @@ chessclock {
 
     sub init() {
         reset()
-        sys.set_irq(clock_irq, true)
+        sys.set_irq(clock_irq)
     }
 
     sub reset() {
@@ -36,7 +36,7 @@ chessclock {
         side = player
     }
 
-    sub clock_irq() {
+    sub clock_irq() -> bool {
         cx16.save_vera_context()
         flash_crosshairs()
         if not paused {
@@ -80,6 +80,8 @@ chessclock {
             txt.setcc(18,ypos,conv.string_out[1], 12)
             txt.setcc(19,ypos,conv.string_out[2], 12)
         }
+
+        return true
     }
 
     sub flash_crosshairs() {

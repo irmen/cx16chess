@@ -203,13 +203,13 @@ main {
         chessclock.reset()
         chessclock.switch(player)
 
-        bool continue = true
-        while continue {
+        bool continuePlaying = true
+        while continuePlaying {
             sys.waitvsync()
             if player == 1
-                continue = human_move()
+                continuePlaying = human_move()
             else if versus_human
-                continue = human_move()
+                continuePlaying = human_move()
             else {
                 uword computer_move = computerplayer.prepare_move()
                 if computer_move {
@@ -217,7 +217,7 @@ main {
                     to_cell = msb(computer_move)
                     confirm_move()
                 } else {
-                    continue = false
+                    continuePlaying = false
                     chessclock.stop()
                     txt.plot(25,54)
                     txt.color(7)
@@ -227,7 +227,7 @@ main {
                 }
             }
             if winner
-                continue=false
+                continuePlaying=false
         }
         chessclock.stop()
         if winner {
