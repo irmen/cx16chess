@@ -13,8 +13,7 @@
 ; https://home.hccnet.nl/h.g.muller/board.html
 ;    makes the move generation look easy with the move_offsets lists.
 
-; TODO when display mode in Vera is 2 (composite), shift the board and chess move list a few columns to the left to remain visible
-; TODO fix bug: sometimes at game start, pawn sprite at C2 or D2 doesn't appear !?
+; TODO fix bug: sometimes at game start, pawn sprite at C2 or D2 doesn't appear, or a piece has garbled gfx !?
 ; TODO castling (see board.castling_possible)
 ; TODO king in check
 ; TODO pawn promotion
@@ -27,15 +26,20 @@ main {
     ubyte turn
     bool versus_human
     ubyte winner
+    ubyte move_log_column = 62
+    ubyte captured_pieces_xoffset1 = 32
+    ubyte captured_pieces_xoffset2 = 70
 
     sub start() {
         ; show_titlescreen_lores()
+        check_composite_overscan()
         show_titlescreen_hires()
         txt.lowercase()
         palette.set_c64pepto()
         load_resources()
         chessclock.init()
         cx16.mouse_config2(1)   ; enable mouse cursor (sprite 0)
+        sprites.set_mousepointer_hand()
 
         repeat {
             pieces.hide_all()
@@ -51,6 +55,16 @@ main {
         }
         while cx16.mouse_pos() {
             ; nothing
+        }
+    }
+
+    sub check_composite_overscan() {
+        if cx16.VERA_DC_VIDEO & 2 == 2 {
+            ; adjust for composite overscanned screen
+            move_log_column = 57
+            board.board_col = 15
+            captured_pieces_xoffset1 = 40
+            captured_pieces_xoffset2 = 64
         }
     }
 
@@ -309,9 +323,9 @@ main {
             move_piece()
             if piece_captured {
                 if piece_captured & 128 {
-                    pieces.move_to(sprite_captured, 32, (sprite_captured & 15) as word *16+50, 32)   ; black piece captured
+                    pieces.move_to(sprite_captured, captured_pieces_xoffset1, (sprite_captured & 15) as word *16+50, 32)   ; black piece captured
                 } else {
-                    pieces.move_to(sprite_captured, 70, (sprite_captured & 15) as word *16+50, 32)   ; white piece captured
+                    pieces.move_to(sprite_captured, captured_pieces_xoffset2, (sprite_captured & 15) as word *16+50, 32)   ; white piece captured
                 }
                 pieces.sprites_cell[sprite_captured] = $ff
             }
@@ -329,9 +343,9 @@ main {
             ubyte move = turn / 2
             txt.color(14)
             if turn & 1 {
-                txt.plot(73, move+board.board_row+1)
+                txt.plot(move_log_column + 11, move+board.board_row+1)
             } else {
-                txt.plot(62, move+board.board_row+1)
+                txt.plot(move_log_column, move+board.board_row+1)
                 txt.print_ub(move+1)
                 txt.chrout('.')
                 txt.spc()
