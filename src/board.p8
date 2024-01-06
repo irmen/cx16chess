@@ -13,7 +13,7 @@ board {
     ; moves that get you outside of the board have the 4th bit set in one or both nibbles
     ; so validity of moves can be easily checked with AND $88
 
-    const ubyte board_col = 20
+    ubyte board_col = 20
     const ubyte board_row = 5
     const ubyte square_size = 5
     const ubyte white_square_color = 8   ; 15
@@ -117,9 +117,9 @@ board {
     }
 
     sub cell_for_screen(word sx, word sy) -> ubyte {
-        sx -= board.board_col * 8
+        sx -= board.board_col * $0008
         sx /= 8*board.square_size
-        sy -= board.board_row * 8
+        sy -= board.board_row * $0008
         sy /= 8*board.square_size
         return lsb(sy << 4) | lsb(sx)
     }
