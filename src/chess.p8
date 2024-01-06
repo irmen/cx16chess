@@ -13,6 +13,7 @@
 ; https://home.hccnet.nl/h.g.muller/board.html
 ;    makes the move generation look easy with the move_offsets lists.
 
+; TODO when display mode in Vera is 2 (composite), shift the board and chess move list a few columns to the left to remain visible
 ; TODO fix bug: sometimes at game start, pawn sprite at C2 or D2 doesn't appear !?
 ; TODO castling (see board.castling_possible)
 ; TODO king in check
@@ -55,8 +56,8 @@ main {
 
     sub show_titlescreen_lores() {
         void cx16.screen_mode(128, false)   ; 256 colors lores
-        if not diskio.vload_raw("titlescreen.pal", 1, $fa00)
-           or not diskio.vload_raw("titlescreen.bin", 0, $0000) {
+        if diskio.vload_raw("titlescreen.pal", 1, $fa00)==0
+           or diskio.vload_raw("titlescreen.bin", 0, $0000)==0 {
             void cx16.screen_mode(0, false)
             txt.print("load error\n")
             sys.wait(120)
@@ -94,8 +95,8 @@ main {
         ; use blank sprite bitmap as pointer to make it invisible
         sprites.data(0, 1, $f400)
 
-        if not diskio.vload_raw("titlescreen640.pal", 1, $fa00)
-           or not diskio.vload_raw("titlescreen640.bin", 0, $0000) {
+        if diskio.vload_raw("titlescreen640.pal", 1, $fa00)==0
+           or diskio.vload_raw("titlescreen640.bin", 0, $0000)==0 {
             sys.reset_system()
         }
         wait_mousebutton()
@@ -141,10 +142,10 @@ main {
         txt.print("for game vs. ")
         txt.print("human")
 
-        txt.plot(57, 56)
+        txt.plot(54, 54)
         txt.color(10)
         txt.print("A game by DesertFish")
-        txt.plot(61, 57)
+        txt.plot(58, 55)
         txt.print("written in Prog8")
 
         repeat {
@@ -165,15 +166,15 @@ main {
     }
 
     sub load_resources() {
-        if not diskio.vload_raw("chesspieces.pal", 1, $fa00 + pieces.palette_offset_color*2)
-           or not diskio.vload_raw("chesspieces.bin", 0, $4000) {
+        if diskio.vload_raw("chesspieces.pal", 1, $fa00 + pieces.palette_offset_color*2)==0
+           or diskio.vload_raw("chesspieces.bin", 0, $4000)==0 {
             txt.print("load error\n")
             sys.wait(120)
             sys.exit(1)
         }
 
-        if not diskio.vload_raw("crosshairs.pal", 1, $fa00 + pieces.palette_offset_color_crosshair*2)
-           or not diskio.vload_raw("crosshairs.bin", 0, $4000 + 12*32*32/2) {
+        if diskio.vload_raw("crosshairs.pal", 1, $fa00 + pieces.palette_offset_color_crosshair*2)==0
+           or diskio.vload_raw("crosshairs.bin", 0, $4000 + 12*32*32/2)==0 {
             txt.print("load error\n")
             sys.wait(120)
             sys.exit(1)
@@ -275,7 +276,7 @@ main {
                 from_cell = $ff
                 ubyte piece = board.cells[ci]
                 if piece {
-                    if (player==1 and piece&$80==0) or (player==2 and piece&$80) {
+                    if (player==1 and piece&$80==0) or (player==2 and piece&$80!=0) {
                         void board.build_possible_moves(ci)
                         from_cell = ci
                     }

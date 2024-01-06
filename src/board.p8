@@ -100,7 +100,7 @@ board {
         if color_override
             txt.color(color_override)
         else {
-            if not (ci>>4 ^ ci) & 1
+            if (ci>>4 ^ ci) & 1 == 0
                 txt.color(white_square_color)
             else
                 txt.color(black_square_color)
@@ -150,7 +150,7 @@ board {
         possible_captures = 0
         possible_moves[0] = $ff
         ubyte piece = board.cells[ci]
-        if not piece
+        if piece==0
             return 0
 
         uword @requirezp vectors = move_vectors(ci)
@@ -196,15 +196,15 @@ board {
                     dest_ci = ci + vector
                     if dest_ci & $88 == 0 {
                         piece2 = board.cells[dest_ci]
-                        if diagonally and piece2 and (piece^piece2) & $80 {
+                        if diagonally and piece2 and ((piece^piece2) & $80 !=0) {
                             move_ok = true
                             possible_captures++
-                        } else if not diagonally and not piece2 {
+                        } else if diagonally==0 and piece2==0 {
                             ; check if not obstructed if moving 2 squares
                             if ci & $f0 == $60
-                                move_ok = not board.cells[ci - $10]
+                                move_ok = board.cells[ci - $10]==0
                             else if ci & $f0 == $10
-                                move_ok = not board.cells[ci + $10]
+                                move_ok = board.cells[ci + $10]==0
                             else
                                 move_ok = true
                         }
@@ -221,7 +221,7 @@ board {
                     dest_ci = ci + vector
                     if dest_ci & $88 == 0 {
                         piece2 = board.cells[dest_ci]
-                        if not piece2 or (piece^piece2) & $80 {
+                        if piece2==0 or (piece^piece2) & $80 !=0 {
                             possible_moves[moves_idx] = dest_ci
                             moves_idx++
                             possible_captures++

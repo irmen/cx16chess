@@ -20,9 +20,9 @@ chessclock {
         jiffies = 0
         paused = true
         txt.color(12)
-        txt.plot(5,54)
+        txt.plot(6,54)
         txt.print("white:")
-        txt.plot(5,56)
+        txt.plot(6,56)
         txt.print("black:")
     }
 
