@@ -30,7 +30,7 @@ pieces {
         for ci in 0 to 127 {
             if ci & $88 == 0 {              ; valid cell on the board?
                 piece = board.cells[ci]
-                if piece {
+                if piece!=0 {
                     sprite_data_ptr = sprite_data_base + (image_for_piece(piece)*$0200)
                     sprites.init(sprite_num, 0, sprite_data_ptr, sprites.SIZE_32, sprites.SIZE_32, sprites.COLORS_16, palette_offset_color)
                     sprites.pos(sprite_num, sx_for_cell(ci), sy_for_cell(ci))

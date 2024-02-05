@@ -97,7 +97,7 @@ board {
     }
 
     sub print_square(ubyte ci, ubyte color_override) {
-        if color_override
+        if color_override!=0
             txt.color(color_override)
         else {
             if (ci>>4 ^ ci) & 1 == 0
@@ -162,15 +162,15 @@ board {
 
         if piece in "RrBbQq" {
             ; multi-square moves
-            while vector {
+            while vector!=0 {
                 dest_ci = ci
                 repeat {
                     dest_ci += vector
-                    if dest_ci & $88
+                    if dest_ci & $88 !=0
                         break
                     piece2 = board.cells[dest_ci]
-                    if piece2 {
-                        if (piece^piece2) & $80 {    ; check for opponent's piece
+                    if piece2!=0 {
+                        if (piece^piece2) & $80 !=0 {    ; check for opponent's piece
                             possible_moves[moves_idx] = dest_ci
                             moves_idx++
                             possible_captures++
@@ -190,16 +190,16 @@ board {
                 ; special rules for pawn:
                 ; cannot move diagonally, UNLESS capturing piece
                 ; can only move 1 square, UNLESS starting on original starting row and unobstructed
-                while vector {
-                    ubyte diagonally = vector & 1
+                while vector!=0 {
+                    bool diagonally = vector & 1 !=0
                     bool move_ok = false
                     dest_ci = ci + vector
                     if dest_ci & $88 == 0 {
                         piece2 = board.cells[dest_ci]
-                        if diagonally and piece2 and ((piece^piece2) & $80 !=0) {
+                        if diagonally and piece2!=0 and ((piece^piece2) & $80 !=0) {
                             move_ok = true
                             possible_captures++
-                        } else if diagonally==0 and piece2==0 {
+                        } else if not diagonally and piece2==0 {
                             ; check if not obstructed if moving 2 squares
                             if ci & $f0 == $60
                                 move_ok = board.cells[ci - $10]==0
@@ -217,7 +217,7 @@ board {
                     vector = vectors[vector_idx]
                 }
             } else {
-                while vector {
+                while vector!=0 {
                     dest_ci = ci + vector
                     if dest_ci & $88 == 0 {
                         piece2 = board.cells[dest_ci]
@@ -284,7 +284,7 @@ board {
                     ; TODO check squares not under attack and not occupied
                     possible &= %10
                 }
-                if possible {
+                if possible!=0 {
                     ; TODO check black king check
                 }
                 return possible
@@ -302,7 +302,7 @@ board {
                     ; TODO check squares not under attack and not occupied
                     possible &= %10
                 }
-                if possible {
+                if possible!=0 {
                     ; TODO check black king check
                 }
                 return possible

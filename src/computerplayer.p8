@@ -21,15 +21,15 @@ computerplayer {
 
         repeat 50000 {
             ci = math.rnd() & $77
-            if board.cells[ci] & $80 {
+            if board.cells[ci] & $80 !=0 {
                 num_moves = board.build_possible_moves(ci)
                 if num_moves>0
                     cell_with_moves = ci
-                if board.possible_captures {
-                    while num_moves {
+                if board.possible_captures>0 {
+                    while num_moves>0 {
                         num_moves--
                         chosen_move = board.possible_moves[num_moves]
-                        if board.cells[chosen_move]   ; is this the move that captures a piece?
+                        if board.cells[chosen_move]!=0   ; is this the move that captures a piece?
                             return mkword(chosen_move, ci)
                     }
                 }

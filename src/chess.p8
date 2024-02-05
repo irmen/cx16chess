@@ -50,10 +50,10 @@ main {
     }
 
     sub wait_mousebutton() {
-        while not cx16.mouse_pos() {
+        while cx16.mouse_pos()==0 {
             ; nothing
         }
-        while cx16.mouse_pos() {
+        while cx16.mouse_pos()!=0 {
             ; nothing
         }
     }
@@ -70,8 +70,8 @@ main {
 
     sub show_titlescreen_lores() {
         void cx16.screen_mode(128, false)   ; 256 colors lores
-        if diskio.vload_raw("titlescreen.pal", 1, $fa00)==0
-           or diskio.vload_raw("titlescreen.bin", 0, $0000)==0 {
+        if not diskio.vload_raw("titlescreen.pal", 1, $fa00)
+           or not diskio.vload_raw("titlescreen.bin", 0, $0000) {
             void cx16.screen_mode(0, false)
             txt.print("load error\n")
             sys.wait(120)
@@ -109,8 +109,8 @@ main {
         ; use blank sprite bitmap as pointer to make it invisible
         sprites.data(0, 1, $f400)
 
-        if diskio.vload_raw("titlescreen640.pal", 1, $fa00)==0
-           or diskio.vload_raw("titlescreen640.bin", 0, $0000)==0 {
+        if not diskio.vload_raw("titlescreen640.pal", 1, $fa00)
+           or not diskio.vload_raw("titlescreen640.bin", 0, $0000) {
             sys.reset_system()
         }
         wait_mousebutton()
@@ -174,21 +174,21 @@ main {
                 }
             }
         }
-        while cx16.mouse_pos() {
+        while cx16.mouse_pos()!=0 {
             ; wait until mouse button release
         }
     }
 
     sub load_resources() {
-        if diskio.vload_raw("chesspieces.pal", 1, $fa00 + pieces.palette_offset_color*2)==0
-           or diskio.vload_raw("chesspieces.bin", 0, $4000)==0 {
+        if not diskio.vload_raw("chesspieces.pal", 1, $fa00 + pieces.palette_offset_color*2)
+           or not diskio.vload_raw("chesspieces.bin", 0, $4000) {
             txt.print("load error\n")
             sys.wait(120)
             sys.exit(1)
         }
 
-        if diskio.vload_raw("crosshairs.pal", 1, $fa00 + pieces.palette_offset_color_crosshair*2)==0
-           or diskio.vload_raw("crosshairs.bin", 0, $4000 + 12*32*32/2)==0 {
+        if not diskio.vload_raw("crosshairs.pal", 1, $fa00 + pieces.palette_offset_color_crosshair*2)
+           or not diskio.vload_raw("crosshairs.bin", 0, $4000 + 12*32*32/2) {
             txt.print("load error\n")
             sys.wait(120)
             sys.exit(1)
@@ -227,7 +227,7 @@ main {
                 continuePlaying = human_move()
             else {
                 uword computer_move = computerplayer.prepare_move()
-                if computer_move {
+                if computer_move!=0 {
                     from_cell = lsb(computer_move)
                     to_cell = msb(computer_move)
                     confirm_move()
@@ -241,11 +241,11 @@ main {
                     wait_mousebutton()
                 }
             }
-            if winner
+            if winner!=0
                 continuePlaying=false
         }
         chessclock.stop()
-        if winner {
+        if winner!=0 {
             show_winner(winner)
         }
 
@@ -259,9 +259,9 @@ main {
             ubyte buttons = cx16.mouse_pos()  ; also puts mouse pos in r0s and r1s
             ci = board.cell_for_screen(cx16.r0s, cx16.r1s)
             if ci & $88 == 0 {
-                if buttons & 1
+                if buttons & 1 !=0
                     prepare_move()
-                else if buttons & 2
+                else if buttons & 2 !=0
                     confirm_move()
                 else
                     button_pressed = false
@@ -289,7 +289,7 @@ main {
                 to_cell = $ff
                 from_cell = $ff
                 ubyte piece = board.cells[ci]
-                if piece {
+                if piece!=0 {
                     if (player==1 and piece&$80==0) or (player==2 and piece&$80!=0) {
                         void board.build_possible_moves(ci)
                         from_cell = ci
@@ -304,7 +304,7 @@ main {
             cx16.r1L = 0
             repeat {
                 cx16.r0L = board.possible_moves[cx16.r1L]
-                if cx16.r0L & $88
+                if cx16.r0L & $88 !=0
                     return false
                 if cx16.r0L == to_ci
                     return true
@@ -313,7 +313,7 @@ main {
         }
 
         sub confirm_move() {
-            if from_cell & $88 or to_cell & $88
+            if from_cell & $88 !=0 or to_cell & $88 !=0
                 return      ; move is invalid
             log_move()
             sprites.hide(pieces.sprite_num_crosshair1)
@@ -321,8 +321,8 @@ main {
             ubyte piece_captured = board.cells[to_cell]
             ubyte sprite_captured = pieces.sprite_in_cell(to_cell)
             move_piece()
-            if piece_captured {
-                if piece_captured & 128 {
+            if piece_captured!=0 {
+                if piece_captured & 128 !=0 {
                     pieces.move_to(sprite_captured, captured_pieces_xoffset1, (sprite_captured & 15) as word *16+50, 32)   ; black piece captured
                 } else {
                     pieces.move_to(sprite_captured, captured_pieces_xoffset2, (sprite_captured & 15) as word *16+50, 32)   ; white piece captured
@@ -342,7 +342,7 @@ main {
         sub log_move() {
             ubyte move = turn / 2
             txt.color(14)
-            if turn & 1 {
+            if turn & 1 !=0 {
                 txt.plot(move_log_column + 11, move+board.board_row+1)
             } else {
                 txt.plot(move_log_column, move+board.board_row+1)
@@ -354,7 +354,7 @@ main {
             if piece!='p' and piece!='P'
                 txt.chrout(board.cells[from_cell] | $80)
             txt.print(board.notation_for_cell(from_cell))
-            if board.cells[to_cell]
+            if board.cells[to_cell]!=0
                 txt.chrout('x')
             txt.print(board.notation_for_cell(to_cell))
             turn++
