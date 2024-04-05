@@ -4,8 +4,8 @@
 pieces {
     const ubyte sprite_num_crosshair1 = 33
     const ubyte sprite_num_crosshair2 = 34
-    const ubyte palette_offset_color = 32
-    const ubyte palette_offset_color_crosshair = palette_offset_color + 16
+    const ubyte sprite_palette_offset = 2
+    const ubyte sprite_palette_offset_crosshair = sprite_palette_offset + 1
 
     const uword sprite_data_base = $4000
     ubyte[35] sprites_cell
@@ -32,7 +32,7 @@ pieces {
                 piece = board.cells[ci]
                 if piece!=0 {
                     sprite_data_ptr = sprite_data_base + (image_for_piece(piece)*$0200)
-                    sprites.init(sprite_num, 0, sprite_data_ptr, sprites.SIZE_32, sprites.SIZE_32, sprites.COLORS_16, palette_offset_color)
+                    sprites.init(sprite_num, 0, sprite_data_ptr, sprites.SIZE_32, sprites.SIZE_32, sprites.COLORS_16, sprite_palette_offset)
                     sprites.pos(sprite_num, sx_for_cell(ci), sy_for_cell(ci))
                     sprites_cell[sprite_num] = ci
                     sprite_num++
@@ -41,9 +41,9 @@ pieces {
         }
 
         sprite_data_ptr = sprite_data_base + (image_for_piece('<')*$0200)
-        sprites.init(sprite_num_crosshair1, 0, sprite_data_ptr, sprites.SIZE_32, sprites.SIZE_32, sprites.COLORS_16, palette_offset_color_crosshair)
+        sprites.init(sprite_num_crosshair1, 0, sprite_data_ptr, sprites.SIZE_32, sprites.SIZE_32, sprites.COLORS_16, sprite_palette_offset_crosshair)
         sprite_data_ptr = sprite_data_base + (image_for_piece('>')*$0200)
-        sprites.init(sprite_num_crosshair2, 0, sprite_data_ptr, sprites.SIZE_32, sprites.SIZE_32, sprites.COLORS_16, palette_offset_color_crosshair)
+        sprites.init(sprite_num_crosshair2, 0, sprite_data_ptr, sprites.SIZE_32, sprites.SIZE_32, sprites.COLORS_16, sprite_palette_offset_crosshair)
         set_invalid_crosshair2()
     }
     

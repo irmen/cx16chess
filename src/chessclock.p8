@@ -68,17 +68,17 @@ chessclock {
                 2 -> ypos = 56
             }
 
-            conv.str_ub0(lsb(hours))
-            txt.setcc(12,ypos,conv.string_out[1], 12)
-            txt.setcc(13,ypos,conv.string_out[2], 12)
+            cx16.r0 = conv.str_ub0(lsb(hours))
+            txt.setcc(12,ypos,cx16.r0[1], 12)
+            txt.setcc(13,ypos,cx16.r0[2], 12)
             txt.setcc(14,ypos,':',12)
-            conv.str_ub0(lsb(minutes))
-            txt.setcc(15,ypos,conv.string_out[1], 12)
-            txt.setcc(16,ypos,conv.string_out[2], 12)
+            cx16.r0 = conv.str_ub0(lsb(minutes))
+            txt.setcc(15,ypos,cx16.r0[1], 12)
+            txt.setcc(16,ypos,cx16.r0[2], 12)
             txt.setcc(17,ypos,':',12)
-            conv.str_ub0(lsb(seconds))
-            txt.setcc(18,ypos,conv.string_out[1], 12)
-            txt.setcc(19,ypos,conv.string_out[2], 12)
+            cx16.r0 = conv.str_ub0(lsb(seconds))
+            txt.setcc(18,ypos,cx16.r0[1], 12)
+            txt.setcc(19,ypos,cx16.r0[2], 12)
         }
 
         return true
@@ -86,7 +86,7 @@ chessclock {
 
     sub flash_crosshairs() {
         ; rotate the 16 colors (except the 1st) in the crosshair palette
-        uword palette_src = $fa00 + pieces.palette_offset_color_crosshair*2
+        uword palette_src = $fa00 + pieces.sprite_palette_offset_crosshair*16*2
         uword palette_dest = palette_src
         palette_src += 2
         ubyte first_lo = cx16.vpeek(1, palette_dest)

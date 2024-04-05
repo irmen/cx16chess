@@ -13,7 +13,7 @@
 ; https://home.hccnet.nl/h.g.muller/board.html
 ;    makes the move generation look easy with the move_offsets lists.
 
-; TODO fix bug: sometimes at game start, pawn sprite at C2 or D2 doesn't appear, or a piece has garbled gfx !?
+; TODO fix bug: chess wait_mousebutton() at end of match doesn't wait for mouse button? or maybe fixed by recent ==0 bugfix?
 ; TODO castling (see board.castling_possible)
 ; TODO king in check
 ; TODO pawn promotion
@@ -50,12 +50,12 @@ main {
     }
 
     sub wait_mousebutton() {
-        while cx16.mouse_pos()==0 {
-            ; nothing
-        }
-        while cx16.mouse_pos()!=0 {
-            ; nothing
-        }
+        do {
+            cx16.r0L, void, void = cx16.mouse_pos()
+        } until cx16.r0L!=0
+        do {
+            cx16.r0L, void, void = cx16.mouse_pos()
+        } until cx16.r0L==0
     }
 
     sub check_composite_overscan() {
@@ -163,7 +163,8 @@ main {
         txt.print("written in Prog8")
 
         repeat {
-            when cx16.mouse_pos() {
+            cx16.r0L, void, void = cx16.mouse_pos()
+            when cx16.r0L {
                 1 -> {
                     versus_human = false
                     break
@@ -174,20 +175,20 @@ main {
                 }
             }
         }
-        while cx16.mouse_pos()!=0 {
-            ; wait until mouse button release
-        }
+        do {
+            cx16.r0L, void, void = cx16.mouse_pos()
+        } until cx16.r0L==0
     }
 
     sub load_resources() {
-        if not diskio.vload_raw("chesspieces.pal", 1, $fa00 + pieces.palette_offset_color*2)
+        if not diskio.vload_raw("chesspieces.pal", 1, $fa00 + pieces.sprite_palette_offset*16*2)
            or not diskio.vload_raw("chesspieces.bin", 0, $4000) {
             txt.print("load error\n")
             sys.wait(120)
             sys.exit(1)
         }
 
-        if not diskio.vload_raw("crosshairs.pal", 1, $fa00 + pieces.palette_offset_color_crosshair*2)
+        if not diskio.vload_raw("crosshairs.pal", 1, $fa00 + pieces.sprite_palette_offset_crosshair*16*2)
            or not diskio.vload_raw("crosshairs.bin", 0, $4000 + 12*32*32/2) {
             txt.print("load error\n")
             sys.wait(120)
@@ -251,12 +252,10 @@ main {
 
 
         sub human_move() -> bool {
-            when cbm.GETIN() {
-                134 -> {
-                    return false
-                }
-            }
-            ubyte buttons = cx16.mouse_pos()  ; also puts mouse pos in r0s and r1s
+            if cbm.GETIN2()==134        ; f3
+                return false
+            ubyte buttons
+            buttons, cx16.r0s, cx16.r1s = cx16.mouse_pos()
             ci = board.cell_for_screen(cx16.r0s, cx16.r1s)
             if ci & $88 == 0 {
                 if buttons & 1 !=0
