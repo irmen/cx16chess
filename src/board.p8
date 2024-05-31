@@ -116,7 +116,7 @@ board {
         }
     }
 
-    sub cell_for_screen(word sx, word sy) -> ubyte {
+    sub cell_for_screen(uword sx, uword sy) -> ubyte {
         sx -= board.board_col * $0008
         sx /= 8*board.square_size
         sy -= board.board_row * $0008

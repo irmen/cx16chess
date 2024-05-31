@@ -51,10 +51,10 @@ main {
 
     sub wait_mousebutton() {
         do {
-            cx16.r0L, void, void = cx16.mouse_pos()
+            cx16.r0L, void, void, void = cx16.mouse_pos()
         } until cx16.r0L!=0
         do {
-            cx16.r0L, void, void = cx16.mouse_pos()
+            cx16.r0L, void, void, void = cx16.mouse_pos()
         } until cx16.r0L==0
     }
 
@@ -163,7 +163,7 @@ main {
         txt.print("written in Prog8")
 
         repeat {
-            cx16.r0L, void, void = cx16.mouse_pos()
+            cx16.r0L, void, void, void = cx16.mouse_pos()
             when cx16.r0L {
                 1 -> {
                     versus_human = false
@@ -176,7 +176,7 @@ main {
             }
         }
         do {
-            cx16.r0L, void, void = cx16.mouse_pos()
+            cx16.r0L, void, void, void = cx16.mouse_pos()
         } until cx16.r0L==0
     }
 
@@ -255,8 +255,8 @@ main {
             if cbm.GETIN2()==134        ; f3
                 return false
             ubyte buttons
-            buttons, cx16.r0s, cx16.r1s = cx16.mouse_pos()
-            ci = board.cell_for_screen(cx16.r0s, cx16.r1s)
+            buttons, cx16.r0, cx16.r1, void = cx16.mouse_pos()
+            ci = board.cell_for_screen(cx16.r0, cx16.r1)
             if ci & $88 == 0 {
                 if buttons & 1 !=0
                     prepare_move()
