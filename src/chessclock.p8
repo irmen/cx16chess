@@ -38,6 +38,7 @@ chessclock {
 
     sub clock_irq() -> bool {
         cx16.save_vera_context()
+        cx16.save_virtual_registers()
         flash_crosshairs()
         if not paused {
             jiffies++
@@ -55,7 +56,9 @@ chessclock {
                 }
             }
         }
+        cx16.restore_virtual_registers()
         cx16.restore_vera_context()
+        return true
 
         sub print_time(ubyte whose, uword seconds) {
             uword hours = seconds/(60*60)
@@ -80,8 +83,6 @@ chessclock {
             txt.setcc(18,ypos,cx16.r0[1], 12)
             txt.setcc(19,ypos,cx16.r0[2], 12)
         }
-
-        return true
     }
 
     sub flash_crosshairs() {

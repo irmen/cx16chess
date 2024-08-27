@@ -45,6 +45,8 @@ pieces {
         sprite_data_ptr = sprite_data_base + (image_for_piece('>')*$0200)
         sprites.init(sprite_num_crosshair2, 0, sprite_data_ptr, sprites.SIZE_32, sprites.SIZE_32, sprites.COLORS_16, sprite_palette_offset_crosshair)
         set_invalid_crosshair2()
+        sprites.hide(sprite_num_crosshair1)
+        sprites.hide(sprite_num_crosshair2)
     }
     
     sub move_between_cells(ubyte from_cell, ubyte to_cell) {

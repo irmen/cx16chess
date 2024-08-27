@@ -273,6 +273,7 @@ main {
                 ; dragging - update target square
                 to_cell = $ff
                 if ci!=from_cell and from_cell & $88 == 0 {
+                    sprites.show(pieces.sprite_num_crosshair2)
                     sprites.pos(pieces.sprite_num_crosshair2, pieces.sx_for_cell(ci), pieces.sy_for_cell(ci))
                     if is_valid_move(from_cell, ci) {
                         to_cell = ci
@@ -283,6 +284,7 @@ main {
                 }
             } else {
                 ; first click - update start square
+                sprites.show(pieces.sprite_num_crosshair1)
                 sprites.pos(pieces.sprite_num_crosshair1, pieces.sx_for_cell(ci), pieces.sy_for_cell(ci))
                 sprites.hide(pieces.sprite_num_crosshair2)
                 to_cell = $ff
